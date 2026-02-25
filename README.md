@@ -64,10 +64,10 @@ df = pd.concat((pd.read_csv(f) for f in csv_files), ignore_index=True)
 print(df.head())
 ```
 
-Each column is the activate power of an appliance.
-
 > [!NOTE]  
 > Not all buildings have the same applainces. (e.g. some buildings may not have fridge or microwave)
+
+Each column is the activate power of an appliance.
 
 ```
    Unnamed: 0  dish washer  electric space heater  electric stove  fridge  microwave  washer dryer        main
@@ -94,9 +94,9 @@ The image may look overwhelming because it has 350,000 data points. Please use t
 
 ![](main_zoom_in.png)
 
-The edge detection algorithm is not perfect, there are some edges not being detected.
-
-Try to improve the edge detector and think about what features needs to be extracted as inputs to Tsetlin Machine.
+> [!NOTE]  
+> The edge detection algorithm is not perfect, there are some edges not being detected.
+> Try to improve the edge detector and think about what features needs to be extracted as inputs to Tsetlin Machine.
 
 ## Machine Learning (Tsetlin Machine)
 
