@@ -77,6 +77,9 @@ if __name__ == "__main__":
     
         logger.info(f"Processing Building {building_id} with appliances: {appliance_names}")
 
+        # Fill missing values using backward fill method
+        df = df.bfill()
+
         # Get main meter data
         main_df = df[["main"]]
 

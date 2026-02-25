@@ -80,8 +80,28 @@ Each column is the activate power of an appliance.
 
 ## Edge Detection
 
+Before training a ML model, we need to find rising edges and falling edges.
+
+```
+$ python main_plot.py
+```
+
+The above script runs edge detection on Building 1 (main meter, fridge and microwave).
+
+![](main_meter.png)
+
+The image may look overwhelming because it has 350,000 data points. Please use the zoom-in button to look at small regions.
+
+![](main_zoom_in.png)
+
+The edge detection algorithm is not perfect, there are some edges not being detected.
+
+Try to improve the edge detector and think about what features needs to be extracted as inputs to Tsetlin Machine.
 
 ## Machine Learning (Tsetlin Machine)
 
+Will add my Tsetlin Machine implementation here soon.
 
 ## Hardware Deployment
+
+Deployment on Arduino, STM32 and ESP32.
