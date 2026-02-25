@@ -1,6 +1,19 @@
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+- [On-Device NILM](#on-device-nilm)
+   * [Prerequisites](#prerequisites)
+   * [REDD Dataset](#redd-dataset)
+   * [Edge Detection](#edge-detection)
+   * [Machine Learning (Tsetlin Machine)](#machine-learning-tsetlin-machine)
+   * [Hardware Deployment](#hardware-deployment)
+
+<!-- TOC end -->
+
+<!-- TOC --><a name="on-device-nilm"></a>
 # On-Device NILM
 
 
+<!-- TOC --><a name="prerequisites"></a>
 ## Prerequisites
 
 Clone the repo:
@@ -32,6 +45,7 @@ $ source .venv/bin/activate
 $ .\.venv\Scripts\activate
 ```
 
+<!-- TOC --><a name="redd-dataset"></a>
 ## REDD Dataset
 
 In the `redd` folder, you can find the data collected from 6 buildings.
@@ -78,6 +92,7 @@ Each column is the activate power of an appliance.
 4           4          0.0                    0.0             0.0     6.0        4.0           0.0   98.919998
 ```
 
+<!-- TOC --><a name="edge-detection"></a>
 ## Edge Detection
 
 Before training a ML model, we need to find rising edges and falling edges.
@@ -98,10 +113,12 @@ The image may look overwhelming because it has 350,000 data points. Please use t
 > The edge detection algorithm is not perfect, there are some edges not being detected.
 > Try to improve the edge detector and think about what features needs to be extracted as inputs to Tsetlin Machine.
 
+<!-- TOC --><a name="machine-learning-tsetlin-machine"></a>
 ## Machine Learning (Tsetlin Machine)
 
 Will add my Tsetlin Machine implementation here soon.
 
+<!-- TOC --><a name="hardware-deployment"></a>
 ## Hardware Deployment
 
 Deployment on Arduino, STM32 and ESP32.
