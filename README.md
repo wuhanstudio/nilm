@@ -91,11 +91,11 @@ $ python main_plot.py
 
 The above script runs edge detection on Building 1 (main meter, fridge and microwave).
 
-![](main_meter.png)
+![](docs/main_meter.png)
 
 The image may look overwhelming because it has 350,000 data points. Please use the zoom-in button to look at small regions.
 
-![](main_zoom_in.png)
+![](docs/main_zoom_in.png)
 
 > [!NOTE]  
 > The edge detection algorithm is not perfect, there are some edges not being detected.

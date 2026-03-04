@@ -21,12 +21,6 @@ def edge_detection(dataframe, noise_level=50, state_threshold=15):
                 continue
 
             output = detector.update(current_time, current_measurement)
-            # if output.get('transition', False):
-            #     logger.info(f"Duration: {len(output['transition_data'])} samples")
-            #     logger.info(f"Transition: {output['transition_power_change']}")
-            #     logger.info(f"Transition: {output['transition_data']}")
-            #     logger.info("---")
-
             pbar.update(1)
 
     # Prepare DataFrames for steady states and transients
@@ -99,11 +93,7 @@ if __name__ == "__main__":
         logger.info(f"Performing edge detection on Building {building_id} microwave...")
         microwave_transient, microwave_steady = edge_detection(microwave_df, noise_level=80, state_threshold=15)
 
+        # Save results to CSV
         main_transient.to_csv(f"building_{building_id}_main_transients.csv", index=False)
-        main_steady.to_csv(f"building_{building_id}_main_steady_states.csv", index=False)
-
         fridge_transient.to_csv(f"building_{building_id}_fridge_transients.csv", index=False)
-        fridge_steady.to_csv(f"building_{building_id}_fridge_steady_states.csv", index=False)
-
         microwave_transient.to_csv(f"building_{building_id}_microwave_transients.csv", index=False)
-        microwave_steady.to_csv(f"building_{building_id}_microwave_steady_states.csv", index=False)
