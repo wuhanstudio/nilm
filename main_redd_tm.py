@@ -18,9 +18,9 @@ for i in building_list:
     redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_fridge_matched_transitions.csv")], ignore_index=True)
     redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_microwave_matched_transitions.csv")], ignore_index=True)
 
-    unknown_file = pd.read_csv(f"building_{i}_matched_transitions.csv")
-    unknown_file = unknown_file[unknown_file["appliance"] == "unknown"]
-    redd_data = pd.concat([redd_data, unknown_file], ignore_index=True)
+    # unknown_file = pd.read_csv(f"building_{i}_matched_transitions.csv")
+    # unknown_file = unknown_file[unknown_file["appliance"] == "unknown"]
+    # redd_data = pd.concat([redd_data, unknown_file], ignore_index=True)
 
     # Draw a scatter plot of duration vs transition for each appliance
     import matplotlib.pyplot as plt
@@ -38,7 +38,7 @@ for i in building_list:
 redd_data['label'] = redd_data['appliance'].map({
     'fridge': 0,
     'microwave': 1,
-    'unknown': 2
+    # 'unknown': 2
 })
 
 X = redd_data[['transition', 'duration']]
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     logger.info(f"Number of clauses: {N_CLAUSE}, Number of states: {N_STATE}")
     logger.info(f"Threshold T: {args.T}, Specificity s: {args.s}")
 
-    tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=3, N_clause=N_CLAUSE, N_state=N_STATE)
+    tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=2, N_clause=N_CLAUSE, N_state=N_STATE)
 
     y_pred = tsetlin.predict(X_test)
     accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
