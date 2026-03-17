@@ -35,6 +35,7 @@ def find_match(building_main, building_app, app_name, tolerance):
 
     return building_main, not_found_list
 
+# Match appliance with main transitions
 for i in building_list:
     print(f"Processing building {i}")
 
@@ -51,3 +52,55 @@ for i in building_list:
     # print(not_found_list)
 
     building_main.to_csv(f"building_{i}_main_transients_train.csv")
+
+# Match rising and falling edges to get duration
+for i in building_list:
+    print(f"Processing building {i}")
+
+    # Load data
+    df = pd.read_csv(f"building_{i}_main_transients_train.csv")
+
+    results = []
+
+    # Separate stacks per appliance
+    stacks = {
+        'fridge': [],
+        'microwave': [],
+        'unknown': []
+    }
+
+    for _, row in df.iterrows():
+        trans = row['transition']
+        
+        # Determine appliance
+        if row['fridge_label'] == 1:
+            key = 'fridge'
+        elif row['microwave_label'] == 1:
+            key = 'microwave'
+        else:
+            key = 'unknown'
+        
+        # Rising edge
+        if trans > 0:
+            stacks[key].append(row)
+
+        # Falling edge
+        else:
+            if stacks[key]:
+                rise = stacks[key].pop()
+
+                results.append({
+                    'appliance': key,
+                    'transition': rise['transition'],
+                    'duration': row['end'] - rise['start'],
+                    'start': rise['start'],
+                    'end': row['end']
+                })
+
+    # Convert to DataFrame
+    matched_df = pd.DataFrame(results)
+
+    # Save if needed
+    matched_df.to_csv(f"building_{i}_matched_transitions.csv", index=False)
+
+    print(f"Total matches: {len(matched_df)}")
