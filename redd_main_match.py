@@ -103,4 +103,4 @@ for i in building_list:
     # Save if needed
     matched_df.to_csv(f"building_{i}_matched_transitions.csv", index=False)
 
-    print(f"Total matches: {len(matched_df)}")
+    print(f"Total matches: {len(matched_df) * 2} / {len(df)}")

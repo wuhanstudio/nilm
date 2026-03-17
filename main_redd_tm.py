@@ -15,14 +15,20 @@ building_list = [1, 2, 3, 5]
 redd_data = pd.DataFrame()
 # Concatenate matched transitions for each building
 for i in building_list:
-    redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_matched_transitions.csv")], ignore_index=True)
+    redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_fridge_matched_transitions.csv")], ignore_index=True)
+    redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_microwave_matched_transitions.csv")], ignore_index=True)
+
+    unknown_file = pd.read_csv(f"building_{i}_matched_transitions.csv")
+    unknown_file = unknown_file[unknown_file["appliance"] == "unknown"]
+    redd_data = pd.concat([redd_data, unknown_file], ignore_index=True)
 
     # Draw a scatter plot of duration vs transition for each appliance
     import matplotlib.pyplot as plt
     plt.figure(figsize=(10, 6))
-    for appliance in ['fridge', 'microwave',]: # 'unknown']:
+    for appliance in ['fridge', 'microwave',]:
         subset = redd_data[redd_data['appliance'] == appliance]
         plt.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
+
     plt.xlabel('Transition')
     plt.ylabel('Duration')
     plt.title('Transition vs Duration for Appliances')
