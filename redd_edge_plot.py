@@ -9,13 +9,15 @@ from matplotlib.widgets import Slider
 from detector import EdgeDetector
 
 building_id = 3
+
 appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+# appliance_names = ["CE appliance"] # Always On and spikes
 
 # Not working ones
-# appliance_name = ["washer dryer"] # Bug
-# appliance_name = ["CE appliance"] # Always On and spikes
-# appliance_name = ["waste disposal unit"] # Spikes
-# appliance_name = ["electric stove", "electric space heater"] # Low threshold
+# appliance_names = ["washer dryer"] # Bug
+
+# appliance_names = ["waste disposal unit"] # Spikes
+# appliance_names = ["electric stove", "electric space heater"] # Low threshold
 
 def plot_edge_detection(dataframe, noise_level=50, state_threshold=15):
     detector = None

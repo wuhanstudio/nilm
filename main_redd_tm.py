@@ -14,13 +14,14 @@ building_list = [1, 2, 3, 4, 5, 6]
 
 appliance_names = ["fridge", "microwave"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "CE appliance"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 
 # Not working ones
-# appliance_name = ["washer dryer"] # Bug
-# appliance_name = ["CE appliance"] # Always On and spikes
-# appliance_name = ["waste disposal unit"] # Spikes
-# appliance_name = ["electric stove", "electric space heater"] # Low threshold
+# appliance_names = ["washer dryer"] # Bug
+
+# appliance_names = ["waste disposal unit"] # Spikes
+# appliance_names = ["electric stove", "electric space heater"] # Low threshold
 
 # Auto generate dictionary for appliances
 appliance_dict = {name: idx for idx, name in enumerate(appliance_names)}
