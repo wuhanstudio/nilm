@@ -10,36 +10,57 @@ from tsetlin import Tsetlin
 from tsetlin.utils.booleanize import booleanize_features
 from tsetlin.utils.split import train_test_split
 
-building_list = [1, 2, 3, 5]
+building_list = [1, 2, 3, 4, 5, 6]
+
+appliance_names = ["fridge", "microwave"]
+# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
+
+# Not working ones
+# appliance_name = ["washer dryer"] # Bug
+# appliance_name = ["CE appliance"] # Always On and spikes
+# appliance_name = ["waste disposal unit"] # Spikes
+# appliance_name = ["electric stove", "electric space heater"] # Low threshold
+
+# Auto generate dictionary for appliances
+appliance_dict = {name: idx for idx, name in enumerate(appliance_names)}
 
 redd_data = pd.DataFrame()
 # Concatenate matched transitions for each building
 for i in building_list:
-    redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_fridge_matched_transitions.csv")], ignore_index=True)
-    redd_data = pd.concat([redd_data, pd.read_csv(f"building_{i}_microwave_matched_transitions.csv")], ignore_index=True)
+    for appliance in appliance_names:
+        try:
+            df = pd.read_csv(f"building_{i}_{appliance}_matched_transitions.csv")
+            redd_data = pd.concat([redd_data, df], ignore_index=True)
+        except FileNotFoundError:
+            logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
+        except pd.errors.EmptyDataError:
+            logger.warning(f"File for building {i}, appliance {appliance} is empty. Skipping...")
+    
+    if 'unknown' in appliance_names:
+        try:
+            df = pd.read_csv(f"building_{i}_matched_transitions.csv")
+            df = df[df['appliance'] == 'unknown']
+            redd_data = pd.concat([redd_data, df], ignore_index=True)
+        except FileNotFoundError:
+            logger.warning(f"File for building {i}, appliance unknown not found. Skipping...")
+        except pd.errors.EmptyDataError:
+            logger.warning(f"File for building {i}, appliance unknown is empty. Skipping...")
 
-    # unknown_file = pd.read_csv(f"building_{i}_matched_transitions.csv")
-    # unknown_file = unknown_file[unknown_file["appliance"] == "unknown"]
-    # redd_data = pd.concat([redd_data, unknown_file], ignore_index=True)
+# Draw a scatter plot of duration vs transition for each appliance
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10, 6))
+for appliance in appliance_names:
+    subset = redd_data[redd_data['appliance'] == appliance]
+    plt.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
 
-    # Draw a scatter plot of duration vs transition for each appliance
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(10, 6))
-    for appliance in ['fridge', 'microwave',]:
-        subset = redd_data[redd_data['appliance'] == appliance]
-        plt.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
+plt.xlabel('Transition')
+plt.ylabel('Duration')
+plt.title('Transition vs Duration for Appliances')
+plt.legend()
+plt.show()
 
-    plt.xlabel('Transition')
-    plt.ylabel('Duration')
-    plt.title('Transition vs Duration for Appliances')
-    plt.legend()
-    plt.show()
-
-redd_data['label'] = redd_data['appliance'].map({
-    'fridge': 0,
-    'microwave': 1,
-    # 'unknown': 2
-})
+redd_data['label'] = redd_data['appliance'].map(appliance_dict)
 
 X = redd_data[['transition', 'duration']]
 y = redd_data['label']
@@ -83,7 +104,7 @@ if __name__ == "__main__":
     logger.info(f"Number of clauses: {N_CLAUSE}, Number of states: {N_STATE}")
     logger.info(f"Threshold T: {args.T}, Specificity s: {args.s}")
 
-    tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=2, N_clause=N_CLAUSE, N_state=N_STATE)
+    tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y)), N_clause=N_CLAUSE, N_state=N_STATE)
 
     y_pred = tsetlin.predict(X_test)
     accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)

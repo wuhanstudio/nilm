@@ -8,6 +8,15 @@ from matplotlib.widgets import Slider
 
 from detector import EdgeDetector
 
+building_id = 3
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+
+# Not working ones
+# appliance_name = ["washer dryer"] # Bug
+# appliance_name = ["CE appliance"] # Always On and spikes
+# appliance_name = ["waste disposal unit"] # Spikes
+# appliance_name = ["electric stove", "electric space heater"] # Low threshold
+
 def plot_edge_detection(dataframe, noise_level=50, state_threshold=15):
     detector = None
     for index, row in tqdm(dataframe.iterrows(), total=len(dataframe)):
@@ -92,7 +101,7 @@ def plot_edge_detection(dataframe, noise_level=50, state_threshold=15):
     ax.set_xlim(x0[0], x0[-1])
     ax.set_ylabel("Power (W)")
     ax.set_xlabel("Time")
-    ax.legend()
+    # ax.legend()
 
     # Slider
     ax_slider = plt.axes([0.2, 0.1, 0.6, 0.03])
@@ -130,36 +139,23 @@ def plot_edge_detection(dataframe, noise_level=50, state_threshold=15):
 
 if __name__ == "__main__":
     # Load REDD dataset
-    building_id = 1
     file_pattern = f"redd_house{building_id}_*.csv"
 
     # Get list of matching files
     csv_files = glob.glob("redd/" + file_pattern)
 
     print("Files found:", csv_files)
-    df = pd.concat((pd.read_csv(f) for f in csv_files), ignore_index=True)
+    df = pd.concat((pd.read_csv(f, index_col=0) for f in csv_files), ignore_index=True)
 
     # Fill missing values using backward fill method
     df = df.bfill()
 
-    # Get main meter data
-    main_df = df[['main']]
+    for appliance in appliance_names:
+        logger.info(f"Performing edge detection on Building {building_id} {appliance}...")
 
-    # Get fridge data
-    fridge_df = df[['fridge']]
-
-    # Get microwave data
-    microwave_df = df[['microwave']]
-
-    # Plot edge detection results
-    logger.info(f"Performing edge detection on Building {building_id} main meter...")
-    transients_main, steady_states_main = plot_edge_detection(main_df, noise_level=80, state_threshold=15)
-    logger.info(f"Detected {len(transients_main)} edges for main meter.")
-
-    logger.info(f"Performing edge detection on Building {building_id} fridge...")
-    transients_fridge, steady_states_fridge = plot_edge_detection(fridge_df, noise_level=80, state_threshold=15)
-    logger.info(f"Detected {len(transients_fridge)} edges for fridge.")
-
-    logger.info(f"Performing edge detection on Building {building_id} microwave...")
-    transients_microwave, steady_states_microwave = plot_edge_detection(microwave_df, noise_level=80, state_threshold=15)
-    logger.info(f"Detected {len(transients_microwave)} edges for microwave.")
+        if appliance in df.columns.to_list():
+            appliance_df = df[[appliance]]
+            transients, steady_states = plot_edge_detection(appliance_df, noise_level=80, state_threshold=15)
+            logger.info(f"Detected {len(transients)} edges for {appliance}.")
+        else:
+            logger.warning(f"{appliance} not found in Building {building_id}. Skipping...")

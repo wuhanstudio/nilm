@@ -1,16 +1,22 @@
 import pandas as pd
-
 import itertools
 from tqdm import tqdm
+from loguru import logger
 
-building_list = [1, 2, 3, 5]
+building_list = [1, 2, 3, 4, 5, 6]
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+
+# Not working ones
+# appliance_name = ["washer dryer"] # Bug
+# appliance_name = ["CE appliance"] # Always On and spikes
+# appliance_name = ["waste disposal unit"] # Spikes
+# appliance_name = ["electric stove", "electric space heater"] # Low threshold
 
 tolerance = 2
 
 def find_match(building_main, building_app, app_name, tolerance):
-    print(f"Processing {app_name}")
-
     building_main[app_name] = 0
+
     # building_main['start'] = pd.to_datetime(building_main['start'])
     # building_main['end'] = pd.to_datetime(building_main['end'])
     
@@ -37,47 +43,50 @@ def find_match(building_main, building_app, app_name, tolerance):
 
 # Match appliance with main transitions
 for i in building_list:
-    print(f"Processing building {i}")
-
     building_main =  pd.read_csv(f"building_{i}_main_transients.csv")
-    building_fridge = pd.read_csv(f"building_{i}_fridge_transients.csv")
-    building_microwave = pd.read_csv(f"building_{i}_microwave_transients.csv")
-    
-    building_main, not_found_list = find_match(building_main, building_fridge, "fridge_label", tolerance)
-    print(f"main: {len(building_main)}, fridge: {len(building_fridge)}, not found: {len(not_found_list)}")
-    # print(not_found_list)
 
-    building_main, not_found_list = find_match(building_main, building_microwave, "microwave_label", tolerance)
-    print(f"main: {len(building_main)}, microwave: {len(building_microwave)}, not found: {len(not_found_list)}")
-    # print(not_found_list)
+    for appliance in appliance_names:
+        logger.info(f"Processing building {i}, appliance: {appliance}")
+
+        try:
+            building_app = pd.read_csv(f"building_{i}_{appliance}_transients.csv")
+        except FileNotFoundError:
+            logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
+            continue
+        except pd.errors.EmptyDataError:
+            logger.warning(f"File for building {i}, appliance {appliance} is empty. Skipping...")
+            continue
+
+        building_main, not_found_list = find_match(building_main, building_app, f"{appliance}_label", tolerance)
+        logger.info(f"main: {len(building_main)}, {appliance}: {len(building_app)}, not found: {len(not_found_list)}")
+        # logger.info(not_found_list)
 
     building_main.to_csv(f"building_{i}_main_transients_train.csv")
 
 # Match rising and falling edges to get duration
 for i in building_list:
-    print(f"Processing building {i}")
+    logger.info(f"Processing building {i}")
 
     # Load data
-    df = pd.read_csv(f"building_{i}_main_transients_train.csv")
+    df = pd.read_csv(f"building_{i}_main_transients_train.csv", index_col=0)
 
     results = []
 
     # Separate stacks per appliance
-    stacks = {
-        'fridge': [],
-        'microwave': [],
-        'unknown': []
-    }
+    stacks = {appliance: [] for appliance in appliance_names}
+    stacks['unknown'] = []
 
     for _, row in df.iterrows():
         trans = row['transition']
-        
+
         # Determine appliance
-        if row['fridge_label'] == 1:
-            key = 'fridge'
-        elif row['microwave_label'] == 1:
-            key = 'microwave'
-        else:
+        found_appliance = False
+        for appliance in appliance_names:
+            if f"{appliance}_label" in row and row[f"{appliance}_label"] == 1:
+                key = appliance
+                found_appliance = True
+                break
+        if not found_appliance:
             key = 'unknown'
         
         # Rising edge
@@ -103,4 +112,4 @@ for i in building_list:
     # Save if needed
     matched_df.to_csv(f"building_{i}_matched_transitions.csv", index=False)
 
-    print(f"Total matches: {len(matched_df) * 2} / {len(df)}")
+    logger.info(f"Total matches: {len(matched_df) * 2} / {len(df)}")

@@ -7,6 +7,14 @@ from detector import EdgeDetector
 
 NUM_BUILDINGS = 6
 
+appliance_names = ["main", "fridge", "microwave", "dish washer", "electric furnace"]
+
+# Not working ones
+# appliance_name = ["washer dryer"] # Bug
+# appliance_name = ["CE appliance"] # Always On and spikes
+# appliance_name = ["waste disposal unit"] # Spikes
+# appliance_name = ["electric stove", "electric space heater"] # Low threshold
+
 def edge_detection(dataframe, noise_level=50, state_threshold=15):
     detector = None
     with tqdm(total=dataframe.shape[0]) as pbar:
@@ -57,43 +65,19 @@ if __name__ == "__main__":
         csv_files = glob.glob("redd/" + building_pattern)
 
         # Read and concatenate
-        df = pd.concat((pd.read_csv(f) for f in csv_files), ignore_index=True)
-
-        # Skip buildings that don't have fridge or microwave data
-        appliance_names = df.columns.tolist()
-        if 'fridge' not in appliance_names:
-            logger.warning(f"Building {building_id} does not have a fridge. Skipping...")
-            continue
-
-        if 'microwave' not in appliance_names:
-            logger.warning(f"Building {building_id} does not have a microwave. Skipping...")
-            continue
-    
-        logger.info(f"Processing Building {building_id} with appliances: {appliance_names}")
+        df = pd.concat((pd.read_csv(f, index_col=0) for f in csv_files), ignore_index=True)
 
         # Fill missing values using backward fill method
         df = df.bfill()
 
-        # Get main meter data
-        main_df = df[["main"]]
+        for appliance in appliance_names:
+            logger.info(f"Performing edge detection on Building {building_id} {appliance}...")
 
-        # Get fridge data
-        fridge_df = df[["fridge"]]
+            if appliance in df.columns.to_list():
+                appliance_df = df[[appliance]]
+                transients, steady_states = edge_detection(appliance_df, noise_level=80, state_threshold=15)
 
-        # # Get microwave data
-        microwave_df = df[["microwave"]]
-
-        # Get edge detection results
-        logger.info(f"Performing edge detection on Building {building_id} main meter...")
-        main_transient, main_steady = edge_detection(main_df, noise_level=80, state_threshold=15)
-
-        logger.info(f"Performing edge detection on Building {building_id} fridge...")
-        fridge_transient, fridge_steady = edge_detection(fridge_df, noise_level=80, state_threshold=15)
-
-        logger.info(f"Performing edge detection on Building {building_id} microwave...")
-        microwave_transient, microwave_steady = edge_detection(microwave_df, noise_level=80, state_threshold=15)
-
-        # Save results to CSV
-        main_transient.to_csv(f"building_{building_id}_main_transients.csv", index=False)
-        fridge_transient.to_csv(f"building_{building_id}_fridge_transients.csv", index=False)
-        microwave_transient.to_csv(f"building_{building_id}_microwave_transients.csv", index=False)
+                transients.to_csv(f"building_{building_id}_{appliance}_transients.csv", index=False)
+                # steady_states.to_csv(f"building_{building_id}_{appliance}_steady_states.csv", index=True)
+            else:
+                logger.warning(f"{appliance} not found in Building {building_id}. Skipping...")

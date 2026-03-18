@@ -1,16 +1,29 @@
 import pandas as pd
 from loguru import logger
 
-building_list = [1, 2, 3, 5]
-appliance_list = ['fridge', 'microwave']
+building_list = [1, 2, 3, 4, 5, 6]
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+
+# Not working ones
+# appliance_name = ["washer dryer"] # Bug
+# appliance_name = ["CE appliance"] # Always On and spikes
+# appliance_name = ["waste disposal unit"] # Spikes
+# appliance_name = ["electric stove", "electric space heater"] # Low threshold
 
 # Match rising and falling edges to get duration
 for i in building_list:
-    for appliance in appliance_list:
+    for appliance in appliance_names:
         logger.info(f"Processing building {i}, appliance: {appliance}")
 
-        # Load data
-        df = pd.read_csv(f"building_{i}_{appliance}_transients.csv")
+        # Check if the file exists
+        try:
+            df = pd.read_csv(f"building_{i}_{appliance}_transients.csv")
+        except FileNotFoundError:
+            logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
+            continue
+        except pd.errors.EmptyDataError:
+            logger.warning(f"File for building {i}, appliance {appliance} is empty. Skipping...")
+            continue
 
         stacks = []
         results = []
