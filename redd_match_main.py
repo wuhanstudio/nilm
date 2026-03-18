@@ -98,13 +98,14 @@ for i in building_list:
             if stacks[key]:
                 rise = stacks[key].pop()
 
-                results.append({
-                    'appliance': key,
-                    'transition': rise['transition'],
-                    'duration': row['end'] - rise['start'],
-                    'start': rise['start'],
-                    'end': row['end']
-                })
+                if not stacks[key]:  # If stack is empty, we have a match
+                    results.append({
+                        'appliance': key,
+                        'transition': rise['transition'],
+                        'duration': row['end'] - rise['start'],
+                        'start': rise['start'],
+                        'end': row['end']
+                    })
 
     # Convert to DataFrame
     matched_df = pd.DataFrame(results)
