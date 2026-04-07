@@ -33,9 +33,6 @@ function renderRows() {
     });
 }
 
-// Initialize table rows
-renderRows();
-
 // ── Appliance chart data ──────────────────────────────────────────────────
 
 async function loadBuildingCSV(csvUrl) {
@@ -206,17 +203,11 @@ async function renderChart() {
     }
 }
 
-renderChart();
+// Initialize table rows
+renderRows();
 
-// Update threshold value in rowState when user changes it in the table
-document.querySelectorAll('input[type="number"]').forEach(input => {
-    input.addEventListener('change', function() {
-        console.log("Threshold input changed:", this.value, "for input ID:", this.id);
-        const buildingId = this.id.split('_')[0];
-        rowState[buildingId].threshold = +this.value;
-        console.log(`Updated threshold for Building ${buildingId}:`, rowState[buildingId].threshold);
-    });
-});
+// Initialize charts
+renderChart();
 
 $( document ).ready( () => {
     $('body').scrollspy({ target: '#main-nav', offset: 130 })
@@ -242,4 +233,15 @@ $( document ).ready( () => {
             });
         }
     });
+
+    // Update threshold value in rowState when user changes it in the table
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('change', function() {
+            console.log("Threshold input changed:", this.value, "for input ID:", this.id);
+            const buildingId = this.id.split('_')[0];
+            rowState[buildingId].threshold = +this.value;
+            console.log(`Updated threshold for Building ${buildingId}:`, rowState[buildingId].threshold);
+        });
+    });
+
 });

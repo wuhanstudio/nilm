@@ -103,24 +103,39 @@ function onUploadSuccess(buildingId, file, submission, groundTruth) {
     submission.appliances = Object.keys(submission).filter(k => k !== 'main');
     console.log("Appliances in submission:", submission.appliances);
 
-    submission.appliances.forEach(app => {
+    ["fridge", "microwave"].forEach(app => {
         const subValues = submission[app];
         console.log(subValues);
 
         // Calculate accuracy as percentage of correctly identified on/off states
-        let correct = 0;
+        let n_recall = 0;
+        let n_precision = 0;
+        let total_recall = 0;
+        let total_precision = 0;
         for (let i = 0; i < subValues.length; i++) {
             // Using a noisy threshold
             threshold = rowState[buildingId].threshold;
             const gt = groundTruth[app][i] > threshold ? 1 : 0;
-            if (subValues[i] === gt) correct++;
-        }
-        const accuracy = (correct / subValues.length) * 100;
-        console.log(`Accuracy for ${app}: ${accuracy.toFixed(2)}%`);
 
-        // Update the "Your Score" cell with this dummy accuracy
-        if (app.toLowerCase() === 'fridge') document.getElementById(`${buildingId}_${app.toLowerCase()}`).textContent = accuracy.toFixed(2) + '%';
-        if (app.toLowerCase() === 'microwave') document.getElementById(`${buildingId}_${app.toLowerCase()}`).textContent = accuracy.toFixed(2) + '%';
+            // Recall
+            if (gt == 1) {
+                total_recall++;
+                if (Math.trunc(subValues[i]) === 1) n_recall++;
+            }
+
+            // Prescision
+            if (Math.trunc(subValues[i]) == 1) {
+                total_precision++;
+                if (gt == 1) n_precision++;
+            }
+        }
+        const precision = (n_precision / total_precision) * 100;
+        const recall    = (n_recall / total_recall) * 100
+        console.log(`Precision for ${app}: ${n_precision} / ${total_precision} = ${precision.toFixed(2)}%`);
+        console.log(`Recall for ${app}: ${n_recall} / ${total_recall} = ${recall.toFixed(2)}%`);
+
+        // Update the "Your Score" cell with this dummy precision
+        document.getElementById(`${buildingId}_${app.toLowerCase()}`).textContent = precision.toFixed(2) + '% (P) ' + recall.toFixed(2) + '% (R)';
     });
 }
 
