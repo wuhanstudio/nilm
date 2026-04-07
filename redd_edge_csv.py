@@ -70,6 +70,17 @@ if __name__ == "__main__":
 
         # Fill missing values using backward fill method
         df = df.bfill()
+        df.to_csv(f"building_{building_id}_combined.csv", index=False)
+
+        df_binary = df.copy()
+        # Columns to convert (exclude index and main)
+        cols_to_convert = [col for col in df.columns if col not in ["index", "main"]]
+
+        # Apply threshold
+        df_binary[cols_to_convert] = (df[cols_to_convert] >= 80).astype(int)
+
+        # Save result while keeping index column
+        df_binary.to_csv(f"building_{building_id}_binary.csv", index=False)
 
         for appliance in appliance_names:
             logger.info(f"Performing edge detection on Building {building_id} {appliance}...")
