@@ -11,6 +11,7 @@ from tsetlin.utils.booleanize import booleanize_features
 from tsetlin.utils.split import train_test_split
 
 building_list = [1, 2, 3, 4, 5, 6]
+output_dir = "temp"
 
 appliance_names = ["fridge", "microwave"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
@@ -31,7 +32,7 @@ redd_data = pd.DataFrame()
 for i in building_list:
     for appliance in appliance_names:
         try:
-            df = pd.read_csv(f"building_{i}_{appliance}_matched_transitions.csv")
+            df = pd.read_csv(f"{output_dir}/building_{i}_{appliance}_matched_transitions.csv")
             redd_data = pd.concat([redd_data, df], ignore_index=True)
         except FileNotFoundError:
             logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
@@ -40,7 +41,7 @@ for i in building_list:
     
     if 'unknown' in appliance_names:
         try:
-            df = pd.read_csv(f"building_{i}_matched_transitions.csv")
+            df = pd.read_csv(f"{output_dir}/building_{i}_matched_transitions.csv")
             df = df[df['appliance'] == 'unknown']
             redd_data = pd.concat([redd_data, df], ignore_index=True)
         except FileNotFoundError:

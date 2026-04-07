@@ -8,7 +8,7 @@ from matplotlib.widgets import Slider
 
 from detector import EdgeDetector
 
-building_id = 3
+building_id = 1
 
 appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["CE appliance"] # Always On and spikes

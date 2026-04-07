@@ -6,7 +6,7 @@ from loguru import logger
 
 from detector import EdgeDetector
 
-NUM_BUILDINGS = 6
+building_list = [1, 2, 3, 4, 5, 6]
 output_dir = "temp"
 
 appliance_names = ["main", "fridge", "microwave", "dish washer", "electric furnace"]
@@ -59,9 +59,8 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    for i in range(NUM_BUILDINGS):
+    for building_id in building_list:
         # Process each building
-        building_id = i + 1
         logger.info(f"Processing Building {building_id}")
 
         # Pattern for files starting with 'redd_house_1' and ending with .csv
@@ -87,6 +86,10 @@ if __name__ == "__main__":
         # Save result while keeping index column
         df_binary.to_csv(f"{output_dir}/building_{building_id}_binary.csv", index=False)
 
+        # Output: Reset all appliance states as 0
+        df_output = df.copy()
+        df_output.loc[:, df_output.columns != "main"] = 0
+
         for appliance in appliance_names:
             logger.info(f"Performing edge detection on Building {building_id} {appliance}...")
 
@@ -94,7 +97,47 @@ if __name__ == "__main__":
                 appliance_df = df[[appliance]]
                 transients, steady_states = edge_detection(appliance_df, noise_level=80, state_threshold=15)
 
-                transients.to_csv(f"{output_dir}/building_{building_id}_{appliance}_transients.csv", index=False)
+                # transients.to_csv(f"{output_dir}/building_{building_id}_{appliance}_transients.csv", index=False)
                 # steady_states.to_csv(f"{output_dir}/building_{building_id}_{appliance}_steady_states.csv", index=True)
+
+                logger.info(f"Processing building {building_id}, appliance: {appliance}")
+
+                stacks = []
+                results = []
+                for _, row in transients.iterrows():
+                    trans = row['transition']
+                
+                    # Rising edge
+                    if trans > 0:
+                        stacks.append(row)
+
+                    # Falling edge
+                    else:
+                        if stacks:
+                            rise = stacks.pop()
+
+                            # If stack is empty, we have a match
+                            # if not stacks:
+                            results.append({
+                                'appliance': appliance,
+                                'transition': rise['transition'],
+                                'duration': row['end'] - rise['start'],
+                                'start': rise['start'],
+                                'end': row['end']
+                            })
+
+                # Convert to DataFrame
+                matched_df = pd.DataFrame(results)
+
+                # Save if needed
+                matched_df.to_csv(f"{output_dir}/building_{building_id}_{appliance}_matched_transitions.csv", index=False)
+
+                logger.info(f"Total transitions: {len(transients)}")
+                logger.info(f"Total matches: {len(matched_df) * 2}")
+
+                for res in results:
+                    df_output.loc[res['start']:res['end'], res['appliance']] = 1
             else:
                 logger.warning(f"{appliance} not found in Building {building_id}. Skipping...")
+
+        df_output.to_csv(f"building_{building_id}_output.csv", index=False)
