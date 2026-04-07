@@ -10,8 +10,13 @@ dependencies = [
     "loguru>=0.7.3",
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
-    "pandas>=3.0.1",
+    "pandas",
     "scikit-learn>=1.8.0",
     "scipy>=1.17.1",
     "tqdm>=4.67.3",
+]
+
+[tool.uv.workspace]
+members = [
+    "notebooks",
 ]
