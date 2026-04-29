@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+enum ModelType {
+    INFERENCE = 0;
+    TRAINING = 1;
+}
+
+message Clause {
+    repeated uint32 data = 3;
+}
+
+message ClauseCompressed {
+    uint32 n_pos_literal = 1;
+    uint32 n_neg_literal = 2;
+
+    repeated uint32 position = 4;
+    repeated uint32 data     = 5;
+}
+
+message Tsetlin {
+    uint32 n_class   = 1;
+    uint32 n_feature = 2;
+    uint32 n_clause  = 3;
+    uint32 n_state   = 4;
+
+    ModelType model_type = 5;
+
+    repeated Clause clauses = 6;
+    repeated ClauseCompressed clauses_compressed = 7;
+}

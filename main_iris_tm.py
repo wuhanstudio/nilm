@@ -73,3 +73,27 @@ if __name__ == "__main__":
     accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
 
     logger.info(f"Test Accuracy: {accuracy * 100:.2f}%")
+    logger.info("")
+
+    # Save the model
+    tsetlin.save_model("tsetlin_iris_model.pb", type="training")
+    logger.info("Model saved to tsetlin_iris_model.pb")
+
+    # Load the model and evaluate again
+    tsetlin_loaded = Tsetlin.load_model("tsetlin_iris_model.pb")
+    y_pred_loaded = tsetlin_loaded.predict(X_test)
+    accuracy_loaded = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred_loaded, y_test)]) / len(y_test)
+
+    logger.info(f"Test Accuracy after loading model: {accuracy_loaded * 100:.2f}%")
+    logger.info("")
+
+    # Save inference model
+    tsetlin.save_model("tsetlin_iris_inference_model.ipb", type="inference")
+    logger.info("Inference Model saved to tsetlin_iris_inference_model.ipb")
+
+    # Load inference model and evaluate
+    tsetlin_inference = Tsetlin.load_model("tsetlin_iris_inference_model.ipb")
+    y_pred_inference = tsetlin_inference.predict(X_test)
+
+    accuracy_inference = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred_inference, y_test)]) / len(y_test)
+    logger.info(f"Test Accuracy after loading inference model: {accuracy_inference * 100:.2f}%")
