@@ -4,3 +4,4 @@ __pycache__/
 *.h5
 *.pb
 *.ipb
+!iris.csv

@@ -1,3 +1,4 @@
+import os
 import glob
 import pandas as pd
 from tqdm import tqdm
@@ -6,6 +7,7 @@ from loguru import logger
 from detector import EdgeDetector
 
 NUM_BUILDINGS = 6
+output_dir = "temp"
 
 appliance_names = ["main", "fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["CE appliance"] # Always On and spikes
@@ -54,6 +56,9 @@ def edge_detection(dataframe, noise_level=50, state_threshold=15):
     return transients, steady_states
 
 if __name__ == "__main__":
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     for i in range(NUM_BUILDINGS):
         # Process each building
         building_id = i + 1
@@ -70,6 +75,17 @@ if __name__ == "__main__":
 
         # Fill missing values using backward fill method
         df = df.bfill()
+        df.to_csv(f"{output_dir}/building_{building_id}_combined.csv", index=False)
+
+        df_binary = df.copy()
+        # Columns to convert (exclude index and main)
+        cols_to_convert = [col for col in df.columns if col not in ["index", "main"]]
+
+        # Apply threshold
+        df_binary[cols_to_convert] = (df[cols_to_convert] >= 80).astype(int)
+
+        # Save result while keeping index column
+        df_binary.to_csv(f"{output_dir}/building_{building_id}_binary.csv", index=False)
 
         for appliance in appliance_names:
             logger.info(f"Performing edge detection on Building {building_id} {appliance}...")
@@ -78,7 +94,7 @@ if __name__ == "__main__":
                 appliance_df = df[[appliance]]
                 transients, steady_states = edge_detection(appliance_df, noise_level=80, state_threshold=15)
 
-                transients.to_csv(f"building_{building_id}_{appliance}_transients.csv", index=False)
-                # steady_states.to_csv(f"building_{building_id}_{appliance}_steady_states.csv", index=True)
+                transients.to_csv(f"{output_dir}/building_{building_id}_{appliance}_transients.csv", index=False)
+                # steady_states.to_csv(f"{output_dir}/building_{building_id}_{appliance}_steady_states.csv", index=True)
             else:
                 logger.warning(f"{appliance} not found in Building {building_id}. Skipping...")

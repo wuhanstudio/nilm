@@ -2,6 +2,7 @@ import pandas as pd
 from loguru import logger
 
 building_list = [1, 2, 3, 4, 5, 6]
+output_dir = "temp"
 
 appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["CE appliance"] # Always On and spikes
@@ -19,7 +20,7 @@ for i in building_list:
 
         # Check if the file exists
         try:
-            df = pd.read_csv(f"building_{i}_{appliance}_transients.csv")
+            df = pd.read_csv(f"{output_dir}/building_{i}_{appliance}_transients.csv")
         except FileNotFoundError:
             logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
             continue
@@ -42,20 +43,20 @@ for i in building_list:
                     rise = stacks.pop()
 
                     # If stack is empty, we have a match
-                    if not stacks:
-                        results.append({
-                            'appliance': appliance,
-                            'transition': rise['transition'],
-                            'duration': row['end'] - rise['start'],
-                            'start': rise['start'],
-                            'end': row['end']
-                        })
+                    # if not stacks:
+                    results.append({
+                        'appliance': appliance,
+                        'transition': rise['transition'],
+                        'duration': row['end'] - rise['start'],
+                        'start': rise['start'],
+                        'end': row['end']
+                    })
 
         # Convert to DataFrame
         matched_df = pd.DataFrame(results)
 
         # Save if needed
-        matched_df.to_csv(f"building_{i}_{appliance}_matched_transitions.csv", index=False)
+        matched_df.to_csv(f"{output_dir}/building_{i}_{appliance}_matched_transitions.csv", index=False)
 
         logger.info(f"Total transitions: {len(df)}")
         logger.info(f"Total matches: {len(matched_df) * 2}")
