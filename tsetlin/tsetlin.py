@@ -109,7 +109,7 @@ class Tsetlin:
 
     @staticmethod
     def load_model(path):
-        import tsetlin_pb2
+        import tsetlin.tsetlin_pb2 as tsetlin_pb2
         tm = tsetlin_pb2.Tsetlin()
 
         with open(path, "rb") as f:
@@ -180,7 +180,7 @@ class Tsetlin:
         return tm_model
 
     def save_model(self, path, type="training"):
-        import tsetlin_pb2
+        import tsetlin.tsetlin_pb2 as tsetlin_pb2
         tm = tsetlin_pb2.Tsetlin()
 
         tm.n_class = self.n_classes
