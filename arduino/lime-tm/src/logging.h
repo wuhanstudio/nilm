@@ -12,14 +12,14 @@
     #define LOGI(tag, fmt, ...) LOG_INF("[%s] " fmt, tag, ##__VA_ARGS__)
     #define LOGD(tag, fmt, ...) LOG_DBG("[%s] " fmt, tag, ##__VA_ARGS__)
 
-#elif defined(ESP_PLATFORM)
-    /* ================= ESP-IDF ================= */
-    #include "esp_log.h"
+// #elif defined(ESP_PLATFORM)
+//     /* ================= ESP-IDF ================= */
+//     #include "esp_log.h"
 
-    #define LOGE(tag, fmt, ...) ESP_LOGE(tag, fmt, ##__VA_ARGS__)
-    #define LOGW(tag, fmt, ...) ESP_LOGW(tag, fmt, ##__VA_ARGS__)
-    #define LOGI(tag, fmt, ...) ESP_LOGI(tag, fmt, ##__VA_ARGS__)
-    #define LOGD(tag, fmt, ...) ESP_LOGD(tag, fmt, ##__VA_ARGS__)
+//     #define LOGE(tag, fmt, ...) ESP_LOGE(tag, fmt, ##__VA_ARGS__)
+//     #define LOGW(tag, fmt, ...) ESP_LOGW(tag, fmt, ##__VA_ARGS__)
+//     #define LOGI(tag, fmt, ...) ESP_LOGI(tag, fmt, ##__VA_ARGS__)
+//     #define LOGD(tag, fmt, ...) ESP_LOGD(tag, fmt, ##__VA_ARGS__)
 
 #elif defined(__RTTHREAD__)
     /* ================= RT-Thread ================= */

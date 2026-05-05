@@ -3,6 +3,10 @@
 #include <math.h>
 #include <stddef.h>
 
+#if defined(ARDUINO_ARCH_STM32)
+#include <malloc.h>
+#endif
+
 #ifdef __AVR__
 float erff(float x) {
     // Abramowitz & Stegun approximation
@@ -25,11 +29,14 @@ static inline float norm_cdf(float x) {
     return 0.5f * (1.0f + erff(x / 1.41421356237f)); // sqrt(2)
 }
 
-void iris_normalize(float* X) {
-  for (int i = 0; i < IRIS_FEATURES; i++) {
-    X[i] = (X[i] - IRIS_X_MEAN) / IRIS_X_STD;
-    X[i] = norm_cdf(X[i]);
-  }
+float X_norm[IRIS_FEATURES];
+float* iris_normalize(const float* X) {
+    for (int i = 0; i < IRIS_FEATURES; i++) {
+        X_norm[i] = (X[i] - IRIS_X_MEAN) / IRIS_X_STD;
+        X_norm[i] = norm_cdf(X_norm[i]);
+    }
+
+    return X_norm;
 }
 
 static int iris_booleanize_n_bit(float x, int num_bits, uint8_t *out_bits) {
@@ -52,7 +59,7 @@ static int iris_booleanize_n_bit(float x, int num_bits, uint8_t *out_bits) {
 }
 
 uint8_t* iris_booleanize_features(
-    float* X,
+    const float* X,
     int num_bits
 ) {
     uint8_t* X_bool = malloc(IRIS_FEATURES * num_bits * sizeof(uint8_t));

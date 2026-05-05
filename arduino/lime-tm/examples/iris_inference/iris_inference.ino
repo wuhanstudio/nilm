@@ -4,33 +4,8 @@
 #include "iris_test.h"
 #include "iris_model.h"
 
-static const char* TAG = "main";
-
-// #define CONSOLE_USE_SERIAL
-#define CONSOLE_USE_CDC
-// #define CONSOLE_USE_RTT
-
-// Print to Serial 1
-#if defined(CONSOLE_USE_SERIAL)
-
-#ifndef HAVE_HWSERIAL1
-HardwareSerial Serial1(PA10, PA9);
-#endif
-
-#define Console Serial1
-#endif
-
-// Print to USB CDC
-#if defined(CONSOLE_USE_CDC)
 #define Console Serial
-#endif
-
-// Print to ST-Link / CMSIS-DAP Debugger (RTT)
-#if defined(CONSOLE_USE_RTT)
-#include <RTTStream.h>
-RTTStream rtt;
-#define Console rtt
-#endif
+static const char* TAG = "main";
 
 #ifdef __AVR__
 FILE f_out;
@@ -64,13 +39,14 @@ int tm_iris_main() {
   // Step 1: Evaluate model on testing images
   int correct = 0;
   for (size_t i = 0; i < IRIS_TEST_SAMPLES; i++) {
-    float* input = iris_X_test[i];
+    const float* input = iris_X_test[i];
 
     LOGI(TAG, "Evaluating model on test sample %d (label %d)", i, iris_y_test[i]);
 
     // Booleanize the input using a threshold
-    iris_normalize(input);
-    uint8_t* bool_input = iris_booleanize_features(input, IRIS_MODEL_BITS);
+    float* X_norm = iris_normalize(input);
+    uint8_t* bool_input = iris_booleanize_features(X_norm, IRIS_MODEL_BITS);
+  
     if(bool_input != NULL) {
       // Evaluate
       tsetlin_evaluate(model, bool_input, votes, &predicted_class);
@@ -94,32 +70,18 @@ int tm_iris_main() {
 
 void setup() {
   // Initialize Console
-  #if defined(CONSOLE_USE_SERIAL)
-  // Print to Serial 1
-  Serial1.begin(115200);
-  while (!Serial1) { ; }
-#elif defined(CONSOLE_USE_CDC)
-  // Print to USB CDC
   Serial.begin(115200);
 #ifdef __AVR__
   fdev_setup_stream(&f_out, sput, nullptr, _FDEV_SETUP_WRITE);  // cf https://www.nongnu.org/avr-libc/user-manual/group__avr__stdio.html#gaf41f158c022cbb6203ccd87d27301226
   stdout = &f_out;
 #endif
   while (!Serial) { ; }
-#elif defined(CONSOLE_USE_RTT)
-  // Print to ST-Link / CMSIS-DAP Debugger (RTT)
-  rtt.blockUpBufferFull();
-#endif
 }
 
 void loop() {
-  int ret = tm_iris_main();
-
-  if (ret < 0) {
-    LOGE(TAG, "Inference Failed.");
-  }
-
-  while (1) {
-    delay(500);
-  };
+    int ret = tm_iris_main();
+    if (ret < 0) {
+      LOGE(TAG, "Inference Failed.");
+    }
+    delay(10000);
 }

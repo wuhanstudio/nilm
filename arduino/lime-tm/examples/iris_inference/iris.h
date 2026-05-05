@@ -11,9 +11,9 @@
 extern "C" {
 #endif
 
-void iris_normalize(float* X);
+float* iris_normalize(const float* X);
 uint8_t* iris_booleanize_features(
-    float* X,
+    const float* X,
     int num_bits
 );
 
