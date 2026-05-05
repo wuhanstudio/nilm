@@ -1,7 +1,8 @@
 #include <tsetlin.h>
 
-#include "iris_model.h"
+#include "iris.h"
 #include "iris_test.h"
+#include "iris_model.h"
 
 static const char* TAG = "main";
 
@@ -45,77 +46,6 @@ extern "C" int _write(int file, char* ptr, int len) {
   return len;
 }
 
-#define IRIS_X_MEAN 3.4636666666666662
-#define IRIS_X_STD  1.974000985027335
-
-#ifdef __AVR__
-float erff(float x) {
-    // Abramowitz & Stegun approximation
-    float t = 1.0f / (1.0f + 0.5f * fabsf(x));
-    float tau = t * expf(-x*x - 1.26551223f +
-                         t*(1.00002368f +
-                         t*(0.37409196f +
-                         t*(0.09678418f +
-                         t*(-0.18628806f +
-                         t*(0.27886807f +
-                         t*(-1.13520398f +
-                         t*(1.48851587f +
-                         t*(-0.82215223f +
-                         t*0.17087277f)))))))));
-    return (x >= 0) ? 1.0f - tau : tau - 1.0f;
-}
-#endif
-
-static inline float norm_cdf(float x) {
-    return 0.5f * (1.0f + erff(x / 1.41421356237f)); // sqrt(2)
-}
-
-static void iris_normalize_img(float* X) {
-  for (int i = 0; i < IRIS_FEATURES; i++) {
-    X[i] = (X[i] - IRIS_X_MEAN) / IRIS_X_STD;
-    X[i] = norm_cdf(X[i]);
-  }
-}
-
-#define IRIS_MODEL_BITS 4
-
-static int iris_booleanize_n_bit(float x, int num_bits, uint8_t *out_bits) {
-    if (x < 0.0f || x > 1.0f)
-        return -1;
-
-    if (!(num_bits == 1 || num_bits == 2 || num_bits == 4 || num_bits == 8))
-        return -2;
-
-    int max_val = (1 << num_bits) - 1;
-
-    /* round-to-nearest-even */
-    int int_val = (int) lrintf(x * max_val);
-
-    for (int i = 0; i < num_bits; i++) {
-        out_bits[i] = (int_val >> (num_bits - 1 - i)) & 1;
-    }
-
-    return 0;
-}
-
-static uint8_t* iris_booleanize_features(
-    float* X,
-    int num_bits
-) {
-    uint8_t* X_bool = malloc(IRIS_FEATURES * num_bits * sizeof(uint8_t));
-    if(!X_bool) {
-        LOGE(TAG, "Failed to allocate memory for booleanized features");
-        return NULL;
-    }
-
-    int offset = 0;
-    for (int i = 0; i < IRIS_FEATURES; i++) {
-        iris_booleanize_n_bit(X[i], num_bits, &X_bool[offset]);
-        offset += num_bits;
-    }
-    return X_bool;
-}
-
 int tm_iris_main() {
   // Step 0: Load Tsetlin model
   Tsetlin* model = &tsetlin_model;
@@ -132,17 +62,18 @@ int tm_iris_main() {
   int32_t votes[10];
 
   // Step 1: Evaluate model on testing images
+  int correct = 0;
   for (size_t i = 0; i < IRIS_TEST_SAMPLES; i++) {
     float* input = iris_X_test[i];
 
     LOGI(TAG, "Evaluating model on test sample %d (label %d)", i, iris_y_test[i]);
 
     // Booleanize the input using a threshold
-    iris_normalize_img(input);
+    iris_normalize(input);
     uint8_t* bool_input = iris_booleanize_features(input, IRIS_MODEL_BITS);
     if(bool_input != NULL) {
       // Evaluate
-      tsetlin_evaluate(model, bool_input, votes, predicted_class);
+      tsetlin_evaluate(model, bool_input, votes, &predicted_class);
       free(bool_input);
     
       for (size_t i = 0; i < model->n_class; i++) {
@@ -150,8 +81,13 @@ int tm_iris_main() {
       }
       LOGI(TAG, "Predicted class: %d with %d votes", predicted_class, votes[predicted_class]);
       LOGI(TAG, "");
+
+      if (predicted_class == iris_y_test[i]) {
+            correct++;
+      }
     }
   }
+  printf("Correct predictions on test set %d / %d\n", (int) correct, (int) IRIS_TEST_SAMPLES);
 
   return 0;
 }
