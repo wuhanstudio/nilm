@@ -72,6 +72,11 @@ y = redd_data['label']
 X = X.values
 y = y.values
 
+# Save the data to a CSV file
+data_df = pd.DataFrame(X, columns=['transition', 'duration'])
+data_df['label'] = y
+data_df.to_csv('redd_data.csv', index=False)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tsetlin Machine on Iris Dataset")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
@@ -94,6 +99,8 @@ if __name__ == "__main__":
     # Normalization
     X_mean = np.mean(X)
     X_std = np.std(X)
+
+    logger.info(f"Feature mean: {X_mean}, Feature std: {X_std}")
 
     logger.info(f"Using {N_BIT} bits for booleanization")
     X_bool = booleanize_features(X, X_mean, X_std, num_bits=N_BIT)
