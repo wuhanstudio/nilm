@@ -9,14 +9,15 @@ from sklearn.metrics import classification_report, confusion_matrix
 from tsetlin import Tsetlin
 from tsetlin.utils.booleanize import booleanize_features
 from tsetlin.utils.split import train_test_split
+from tsetlin.compiler.write import tsetlin_compile
 
 building_list = [1, 2, 3, 4, 5, 6]
 output_dir = "temp"
 
-appliance_names = ["fridge", "microwave"]
+# appliance_names = ["fridge", "microwave"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "CE appliance"]
-# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 
 # Not working ones
 # appliance_names = ["washer dryer"] # Bug
@@ -106,26 +107,52 @@ if __name__ == "__main__":
     logger.info(f"Number of clauses: {N_CLAUSE}, Number of states: {N_STATE}")
     logger.info(f"Threshold T: {args.T}, Specificity s: {args.s}")
 
-    tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y)), N_clause=N_CLAUSE, N_state=N_STATE)
+    m_tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y)), N_clause=N_CLAUSE, N_state=N_STATE)
 
-    y_pred = tsetlin.predict(X_test)
+    y_pred = m_tsetlin.predict(X_test)
     accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
 
     for epoch in range(N_EPOCHS):
         logger.info(f"[Epoch {epoch+1}/{N_EPOCHS}] Train Accuracy: {accuracy * 100:.2f}%")
         for i in tqdm(range(len(X_train))):
-            tsetlin.step(X_train[i], y_train[i], T=args.T, s=args.s)
+            m_tsetlin.step(X_train[i], y_train[i], T=args.T, s=args.s)
 
-        y_pred = tsetlin.predict(X_train)
+        y_pred = m_tsetlin.predict(X_train)
         accuracy = sum([ 1 if pred == train else 0 for pred, train in zip(y_pred, y_train)]) / len(y_train)
 
     logger.info("")
 
     # Final evaluation
-    y_pred = tsetlin.predict(X_test)
+    y_pred = m_tsetlin.predict(X_test)
     accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
 
     logger.info(f"Test Accuracy: {accuracy * 100:.2f}%")
 
     print(confusion_matrix(y_test, y_pred))
     print(classification_report(y_test, y_pred))
+
+    # Save the model
+    m_tsetlin.save_model("tsetlin_redd_model.pb", type="training")
+    logger.info("Model saved to tsetlin_redd_model.pb")
+
+    # Load the model and evaluate again
+    m_tsetlin_loaded = Tsetlin.load_model("tsetlin_redd_model.pb")
+    y_pred_loaded = m_tsetlin_loaded.predict(X_test)
+    accuracy_loaded = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred_loaded, y_test)]) / len(y_test)
+
+    logger.info(f"Test Accuracy after loading model: {accuracy_loaded * 100:.2f}%")
+    logger.info("")
+
+    # Save inference model
+    m_tsetlin.save_model("tsetlin_redd_inference_model.ipb", type="inference")
+    logger.info("Inference Model saved to tsetlin_redd_inference_model.ipb")
+
+    # Load inference model and evaluate
+    m_tsetlin_inference = Tsetlin.load_model("tsetlin_redd_inference_model.ipb")
+    y_pred_inference = m_tsetlin_inference.predict(X_test)
+
+    accuracy_inference = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred_inference, y_test)]) / len(y_test)
+    logger.info(f"Test Accuracy after loading inference model: {accuracy_inference * 100:.2f}%")
+
+    # Compile the inference model to C header
+    tsetlin_compile("tsetlin_redd_inference_model.ipb", "redd_model.h")
