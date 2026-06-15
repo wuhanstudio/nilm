@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Five-appliance Han-compatible active-cycle event benchmark helper.
 
-This candidate upstream script avoids imports from the originating individual
-project. Report mode reads bundled result tables. Smoke mode performs a tiny
-standalone sanity check. H0/M6 mode ports the Round 8D-A P2 event pairing, F3
-features, train-only 8-bit booleanization, and one-vs-rest TM wrapper.
+This benchmark helper is self-contained for the Round 8D-A H0/M6 reproduction
+path. Report mode reads bundled result tables. Smoke mode performs a tiny
+standalone sanity check. H0/M6 mode implements P2 event pairing, F3 features,
+train-only 8-bit booleanization, and a one-vs-rest TM wrapper.
 """
 
 from __future__ import annotations
