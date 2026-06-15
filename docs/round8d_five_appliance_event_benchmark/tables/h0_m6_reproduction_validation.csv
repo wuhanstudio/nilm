@@ -1,0 +1,11 @@
+metric,expected_archived,observed_reproduction,delta,status,notes
+accuracy,0.9410815173527038,0.9492,0.0081184826472962,close_observed_higher,Full H0/M6 reproduction executed successfully; not claimed bit-exact.
+macro_precision,0.954604084240137,0.9620,0.0073959157598630,close_observed_higher,Observed metric comparable to archived H0/M6 reference.
+macro_recall,0.905829939454269,0.9195,0.0136700605457310,close_observed_higher,Observed metric comparable to archived H0/M6 reference.
+macro_f1,0.925887856269526,0.9378,0.0119121437304740,close_observed_higher,Observed metric comparable to archived H0/M6 reference.
+fridge_f1,0.9662698412698412,0.9660,-0.0002698412698412,close,Observed metric comparable to archived H0/M6 reference.
+microwave_f1,0.9909090909090909,0.9909,-0.0000090909090909,close,Observed metric comparable to archived H0/M6 reference.
+dish_washer_f1,0.8407643312101911,0.8662,0.0254356687898089,close_observed_higher,Observed metric comparable to archived H0/M6 reference.
+electric_furnace_f1,0.8899755501222494,0.9129,0.0229244498777506,close_observed_higher,Observed metric comparable to archived H0/M6 reference.
+washer_dryer_f1,0.9415204678362574,0.9527,0.0111795321637426,close_observed_higher,Observed metric comparable to archived H0/M6 reference.
+runtime_seconds,1869.054713200021,1827.7,-41.354713200021,close_observed_faster,Runtime depends on local machine and environment.

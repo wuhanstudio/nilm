@@ -1,0 +1,7 @@
+ablation_name,feature_groups_included,purpose,expected_runtime,priority,not_run_reason_or_status
+A0_transition_duration_core,"pos_transition_magnitude; neg_transition_magnitude; duration; log_duration",Separate transition/duration core from richer shape features,moderate,high,Planned only; not run in reproducibility pack
+A1_core_plus_window_stats,"A0 plus episode_mean_main; episode_std_main; episode_min_main; episode_max_main; episode_range_main",Test whether window statistics explain most of the F3 gain,moderate,high,Planned only; not run in reproducibility pack
+A2_core_plus_internal_edges,"A0 plus internal_diff_mean_abs; internal_diff_max_abs; internal_edge_count; subcycle_count_proxy",Test whether internal edge and subcycle proxies drive separability,moderate,medium,Planned only; not run in reproducibility pack
+A3_core_plus_active_fraction,"A0 plus active_fraction_proxy",Test whether active-fraction proxy is enough to explain appliance-shape separation,moderate,medium,Planned only; not run in reproducibility pack
+A4_shape_without_duration,"F3 without duration; log_duration; transition_duration_product; transition_duration_ratio",Check whether duration features dominate the shape-plus improvement,moderate,medium,Planned only; not run in reproducibility pack
+A5_full_F3_repeat,"Full F3_event_shape_plus_reference",Confirm archived M6 under the same feature set,potentially long,low,Already represented by Round 8D-A archive; rerun only if explicit reproduction is needed
