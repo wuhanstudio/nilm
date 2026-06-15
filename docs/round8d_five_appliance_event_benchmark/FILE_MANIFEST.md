@@ -6,6 +6,7 @@ This manifest lists the files included for the Round 8D-A five-appliance active-
 | --- | --- | --- | --- | --- |
 | `main_redd_tm_five_appliance_shape_benchmark.py` | code | required | Self-contained report/smoke/H0-M6/model-size helper |
 | `docs/round8d_five_appliance_event_benchmark/README.md` | documentation | required | Entry point for benchmark docs |
+| `docs/round8d_five_appliance_event_benchmark/METHODOLOGY_AND_TERMS.md` | documentation | required | Project-specific terminology and step-by-step M6 encoding pipeline |
 | `docs/round8d_five_appliance_event_benchmark/TECHNICAL_NOTE.md` | documentation | required | Protocol, feature, model, and caveat explanation |
 | `docs/round8d_five_appliance_event_benchmark/REPRODUCTION_COMMANDS.md` | documentation | required | Manual commands for report, smoke, dry-run, H0-M6, and size estimate |
 | `docs/round8d_five_appliance_event_benchmark/DEPLOYMENT_AND_PORTING_NOTES.md` | documentation | required | Tsetlin serialization, header compilation, and Arduino/Pico notes |

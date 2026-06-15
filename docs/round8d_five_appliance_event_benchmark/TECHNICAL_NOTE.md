@@ -45,6 +45,12 @@ The target appliances are fridge, microwave, dish washer, electric furnace, and 
 
 F3 features are computed from appliance-derived event windows in this benchmark. They explain event-signature separability, not deployable aggregate-main NILM performance.
 
+## Encoding and Model Design Summary
+
+Han's original REDD TM route uses matched transitions, transition/duration features, Booleanization, and a multiclass TM.
+
+Round 8D-A M6 keeps the active-cycle/event-signature framing and extends the encoding. It uses P2 nearest-opposite pairing, F3 shape-plus features, train-only 8-bit Booleanization, and five one-vs-rest binary TMs. Each binary TM produces a positive-vs-negative vote margin; the predicted appliance is the class with the largest margin.
+
 ## Model Progression
 
 `M0_simple_baseline`: nearest-centroid reference baseline.

@@ -20,8 +20,11 @@ Important caveat: this is reference-only. H0/H1 use appliance-derived matched tr
 
 The five real appliance targets are fridge, microwave, dish washer, electric furnace, and washer dryer. H0 is the main Han-compatible reference protocol because it uses a stratified random event split, closest to an active-cycle signature demonstration. H1 holds out House 3 and is included as a stricter cross-house diagnostic.
 
+Key terms and method: `METHODOLOGY_AND_TERMS.md` defines the project-specific protocol names, P2 pairing, F3 shape-plus features, train-only 8-bit Booleanization, and the five one-vs-rest TM design.
+
 Read:
 
+* `METHODOLOGY_AND_TERMS.md` for definitions and the step-by-step M6 encoding pipeline.
 * `TECHNICAL_NOTE.md` for protocol, feature, model, and reference-only details.
 * `REPRODUCTION_COMMANDS.md` for report, smoke, dry-run, H0/M6, and model-size commands.
 * `DEPLOYMENT_AND_PORTING_NOTES.md` for protobuf/header export and Arduino/Pico notes.
