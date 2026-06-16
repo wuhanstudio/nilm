@@ -15,6 +15,32 @@ building_list_train = [1, 2, 4, 5, 6]
 building_list_test  = [3]
 output_dir = "temp"
 
+features = ["transition", "duration"]
+features += [
+        "pos_transition_magnitude",
+        "neg_transition_magnitude",
+        "abs_transition",
+        "log_abs_transition",
+        "duration",
+        "log_duration",
+        "transition_duration_product",
+        "transition_duration_ratio",
+        "episode_mean_main",
+        "episode_std_main",
+        "episode_min_main",
+        "episode_max_main",
+        "episode_range_main",
+        "internal_diff_mean_abs",
+        "internal_diff_max_abs",
+        "internal_edge_count",
+        "subcycle_count_proxy",
+        "active_fraction_proxy",
+        "episode_energy_estimate",
+        "post_minus_pre_mean",
+        "event_internal_edge_count",
+]
+print(f"Features: {features}")
+
 # appliance_names = ["fridge", "microwave"]
 appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
@@ -67,7 +93,7 @@ def read_redd_data(building_list, appliance_names, output_dir):
 
     redd_data['label'] = redd_data['appliance'].map(appliance_dict)
 
-    X = redd_data[['transition', 'duration']]
+    X = redd_data[features]
     y = redd_data['label']
 
     # Convert dataframe to numpy array
@@ -80,7 +106,7 @@ def read_redd_data(building_list, appliance_names, output_dir):
 X_train, y_train = read_redd_data(building_list_train, appliance_names, output_dir)
 
 # Save the training data to a CSV file
-train_data_df = pd.DataFrame(X_train, columns=['transition', 'duration'])
+train_data_df = pd.DataFrame(X_train, columns=features)
 train_data_df['label'] = y_train
 train_data_df.to_csv('redd_data_train.csv', index=False)
 
@@ -88,7 +114,7 @@ train_data_df.to_csv('redd_data_train.csv', index=False)
 X_test, y_test = read_redd_data(building_list_test, appliance_names, output_dir)
 
 # Save the test data to a CSV file
-test_data_df = pd.DataFrame(X_test, columns=['transition', 'duration'])
+test_data_df = pd.DataFrame(X_test, columns=features)
 test_data_df['label'] = y_test
 test_data_df.to_csv('redd_data_test.csv', index=False)
 
