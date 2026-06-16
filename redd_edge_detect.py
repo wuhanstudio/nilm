@@ -6,7 +6,7 @@ from loguru import logger
 
 from detector import EdgeDetector
 
-NUM_BUILDINGS = 6
+building_list = [1, 2, 3, 4, 5, 6]
 output_dir = "temp"
 
 appliance_names = ["main", "fridge", "microwave", "dish washer", "electric furnace"]
@@ -44,10 +44,10 @@ def edge_detection(dataframe, noise_level=50, state_threshold=15):
     if len(detector.index_transitions_end) > 0:
         transients = pd.DataFrame({
             "transition": detector.transitions,
-            "duration": [len(tran) for tran in detector.tran_data_list],
+            "duration": [detector.index_transitions_end[i] - detector.index_transitions_start[i] for i in range(len(detector.index_transitions_start))],
             "start": detector.index_transitions_start,
             "end": detector.index_transitions_end,
-            "sequence": detector.tran_data_list
+            # "sequence": detector.tran_data_list
         })
         steady_states = pd.DataFrame(
             data=detector.steady_states, index=detector.index_steady_states, columns=["active average"]
@@ -59,9 +59,8 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    for i in range(NUM_BUILDINGS):
+    for building_id in building_list:
         # Process each building
-        building_id = i + 1
         logger.info(f"Processing Building {building_id}")
 
         # Pattern for files starting with 'redd_house_1' and ending with .csv
@@ -74,8 +73,8 @@ if __name__ == "__main__":
         df = pd.concat((pd.read_csv(f, index_col=0) for f in csv_files), ignore_index=True)
 
         # Fill missing values using backward fill method
-        # df = df.bfill()
-        # df.to_csv(f"{output_dir}/building_{building_id}_combined.csv", index=False)
+        df = df.bfill()
+        df.to_csv(f"building_{building_id}_raw.csv", index=False)
 
         # df_binary = df.copy()
         # Columns to convert (exclude index and main)

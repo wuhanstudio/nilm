@@ -64,56 +64,12 @@ for i in building_list:
         logger.info(f"main: {len(building_main)}, {appliance}: {len(building_app)}, not found: {len(not_found_list)}")
         # logger.info(not_found_list)
 
-    building_main.to_csv(f"{output_dir}/building_{i}_main_transients_train.csv")
+    # Add unknown label for unmatched transitions
+    for appliance in appliance_names:
+        if f"{appliance}_label" not in building_main.columns:
+            building_main[f"{appliance}_label"] = 0
 
-# Match rising and falling edges to get duration
-for i in building_list:
-    logger.info(f"Processing building {i}")
+    building_main['unknown'] = (building_main[[f"{appliance}_label" for appliance in appliance_names]].sum(axis=1) == 0).astype(int)
 
-    # Load data
-    df = pd.read_csv(f"{output_dir}/building_{i}_main_transients_train.csv", index_col=0)
-
-    results = []
-
-    # Separate stacks per appliance
-    stacks = {appliance: [] for appliance in appliance_names}
-    stacks['unknown'] = []
-
-    for _, row in df.iterrows():
-        trans = row['transition']
-
-        # Determine appliance
-        found_appliance = False
-        for appliance in appliance_names:
-            if f"{appliance}_label" in row and row[f"{appliance}_label"] == 1:
-                key = appliance
-                found_appliance = True
-                break
-        if not found_appliance:
-            key = 'unknown'
-        
-        # Rising edge
-        if trans > 0:
-            stacks[key].append(row)
-
-        # Falling edge
-        else:
-            if stacks[key]:
-                rise = stacks[key].pop()
-
-                if not stacks[key]:  # If stack is empty, we have a match
-                    results.append({
-                        'appliance': key,
-                        'transition': rise['transition'],
-                        'duration': row['end'] - rise['start'],
-                        'start': rise['start'],
-                        'end': row['end']
-                    })
-
-    # Convert to DataFrame
-    matched_df = pd.DataFrame(results)
-
-    # Save if needed
-    matched_df.to_csv(f"{output_dir}/building_{i}_matched_transitions.csv", index=False)
-
-    logger.info(f"Total matches: {len(matched_df) * 2} / {len(df)}")
+    # Save the matched transitions to a new CSV file
+    building_main.to_csv(f"building_{i}_main_transients_train.csv")
