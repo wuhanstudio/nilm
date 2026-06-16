@@ -243,9 +243,12 @@ if __name__ == "__main__":
                          "neg_delta": pair["fall_power"]
                          }
                     )
+                    building_raw.loc[int(pair["rise_time"]):int(pair["fall_time"]), f"{appliance}"] = 1
 
                     # Append the matched row to a new DataFrame
                     matched_events.append(episode | matched_row)
 
                 pairs_df = pd.DataFrame(matched_events)
                 pairs_df.to_csv(f"temp/building_{i}_{appliance}_matched_transitions.csv", index=False)
+
+        building_raw.to_csv(f"building_{i}_labeled.csv", index=False)
