@@ -8,7 +8,7 @@ const buildings = [
     { id: '6', label: 'Building 6' },
 ];
 const rowState = {};
-buildings.forEach(b => { rowState[b.id] = { fridgeScore: '-', microwaveScore: '-', threshold: 80, uploadedFile: null }; });
+buildings.forEach(b => { rowState[b.id] = { fridgeScore: '-', microwaveScore: '-', dishwasherScore: '-', furnaceScore: '-', threshold: 80, uploadedFile: null }; });
 
 function renderRows() {
     const tbody = document.querySelector('tbody');
@@ -21,6 +21,8 @@ function renderRows() {
         <th scope="row">${b.label}</th>
         <td id="${b.id}_fridge">${s.fridgeScore}</td>
         <td id="${b.id}_microwave">${s.microwaveScore}</td>
+        <td id="${b.id}_dishwasher">${s.dishwasherScore}</td>
+        <td id="${b.id}_electricfurnace">${s.furnaceScore}</td>
         <td id="${b.id}_threshold"><input type="number" class="form-control" value="${s.threshold}" id="${b.id}_threshold-input" /></td>
         <td><div id="${b.id}_download"><a href="redd/building_${b.id}_combined.csv" target="_blank"><span class="badge badge-success" style="cursor:pointer;">csv</span></a></div></td>
         <td><button class="btn-upload open-upload-modal" data-building-id="${b.id}" data-building-label="${b.label}"><i class="fas fa-upload mr-1"></i>Upload</button></td>

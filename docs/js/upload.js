@@ -95,47 +95,49 @@ document.getElementById('confirm-upload-btn').addEventListener('click', () => {
 function onUploadSuccess(buildingId, file, submission, groundTruth) {
     showFeedback('Upload successful!', 'success');
     rowState[buildingId].uploadedFile = file.name;
-    const statusCell = document.getElementById(`${buildingId}_status`);
-    statusCell.innerHTML = '<span class="status-badge success">✓ Uploaded</span>';
+    // const statusCell = document.getElementById(`${buildingId}_status`);
+    // statusCell.innerHTML = '<span class="status-badge success">✓ Uploaded</span>';
     setTimeout(() => $('#uploadModal').modal('hide'), 1200);
 
     // For each appiance, match submission with ground truth and calculate a dummy score (e.g., mean absolute error)
     submission.appliances = Object.keys(submission).filter(k => k !== 'main');
     console.log("Appliances in submission:", submission.appliances);
 
-    ["fridge", "microwave"].forEach(app => {
+    ["fridge", "microwave", "dish washer", "electric furnace"].forEach(app => {
         const subValues = submission[app];
         console.log(subValues);
 
-        // Calculate accuracy as percentage of correctly identified on/off states
-        let n_recall = 0;
-        let n_precision = 0;
-        let total_recall = 0;
-        let total_precision = 0;
-        for (let i = 0; i < subValues.length; i++) {
-            // Using a noisy threshold
-            threshold = rowState[buildingId].threshold;
-            const gt = groundTruth[app][i] > threshold ? 1 : 0;
+        if (app in groundTruth) {
+            // Calculate accuracy as percentage of correctly identified on/off states
+            let n_recall = 0;
+            let n_precision = 0;
+            let total_recall = 0;
+            let total_precision = 0;
+            for (let i = 0; i < subValues.length; i++) {
+                // Using a noisy threshold
+                threshold = rowState[buildingId].threshold;
+                const gt = groundTruth[app][i] > threshold ? 1 : 0;
 
-            // Recall
-            if (gt == 1) {
-                total_recall++;
-                if (Math.trunc(subValues[i]) === 1) n_recall++;
-            }
+                // Recall
+                if (gt == 1) {
+                    total_recall++;
+                    if (Math.trunc(subValues[i]) === 1) n_recall++;
+                }
 
-            // Prescision
-            if (Math.trunc(subValues[i]) == 1) {
-                total_precision++;
-                if (gt == 1) n_precision++;
+                // Prescision
+                if (Math.trunc(subValues[i]) == 1) {
+                    total_precision++;
+                    if (gt == 1) n_precision++;
+                }
             }
+            const precision = (n_precision / total_precision) * 100;
+            const recall    = (n_recall / total_recall) * 100
+            console.log(`Precision for ${app.toLowerCase()}: ${n_precision} / ${total_precision} = ${precision.toFixed(2)}%`);
+            console.log(`Recall for ${app.toLowerCase()}: ${n_recall} / ${total_recall} = ${recall.toFixed(2)}%`);
+
+            // Update the "Your Score" cell with this dummy precision
+            document.getElementById(`${buildingId}_${app.toLowerCase().replace(/ /g,'')}`).textContent = precision.toFixed(2) + '% (P) ' + recall.toFixed(2) + '% (R)';
         }
-        const precision = (n_precision / total_precision) * 100;
-        const recall    = (n_recall / total_recall) * 100
-        console.log(`Precision for ${app}: ${n_precision} / ${total_precision} = ${precision.toFixed(2)}%`);
-        console.log(`Recall for ${app}: ${n_recall} / ${total_recall} = ${recall.toFixed(2)}%`);
-
-        // Update the "Your Score" cell with this dummy precision
-        document.getElementById(`${buildingId}_${app.toLowerCase()}`).textContent = precision.toFixed(2) + '% (P) ' + recall.toFixed(2) + '% (R)';
     });
 }
 
