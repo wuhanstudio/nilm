@@ -6,7 +6,7 @@ from scipy.signal import medfilt
 from sklearn.cluster import KMeans
 
 building_list = [1, 2, 3, 4, 5, 6]
-appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 
 def best_subset_dp(active, target, max_subset_size=6):
     """
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
             pairs, unmatched_on, unmatched_off = match_edges_stateful(
                 df,
-                appliance_col=f"{appliance}_label",
+                appliance_col=f"{appliance}_label" if appliance != "unknown" else "unknown",
                 power_weight=1.0,
                 time_weight=0.05,
                 max_duration=2000,
