@@ -74,18 +74,18 @@ if __name__ == "__main__":
         df = pd.concat((pd.read_csv(f, index_col=0) for f in csv_files), ignore_index=True)
 
         # Fill missing values using backward fill method
-        df = df.bfill()
-        df.to_csv(f"{output_dir}/building_{building_id}_combined.csv", index=False)
+        # df = df.bfill()
+        # df.to_csv(f"{output_dir}/building_{building_id}_combined.csv", index=False)
 
-        df_binary = df.copy()
+        # df_binary = df.copy()
         # Columns to convert (exclude index and main)
-        cols_to_convert = [col for col in df.columns if col not in ["index", "main"]]
+        # cols_to_convert = [col for col in df.columns if col not in ["index", "main"]]
 
         # Apply threshold
-        df_binary[cols_to_convert] = (df[cols_to_convert] >= 80).astype(int)
+        # df_binary[cols_to_convert] = (df[cols_to_convert] >= 80).astype(int)
 
         # Save result while keeping index column
-        df_binary.to_csv(f"{output_dir}/building_{building_id}_binary.csv", index=False)
+        # df_binary.to_csv(f"{output_dir}/building_{building_id}_binary.csv", index=False)
 
         for appliance in appliance_names:
             logger.info(f"Performing edge detection on Building {building_id} {appliance}...")

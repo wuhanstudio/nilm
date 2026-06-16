@@ -4,6 +4,7 @@ from tqdm import tqdm
 from loguru import logger
 
 building_list = [1, 2, 3, 4, 5, 6]
+output_dir = "temp"
 
 appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["CE appliance"] # Always On and spikes
@@ -45,13 +46,13 @@ def find_match(building_main, building_app, app_name, tolerance):
 
 # Match appliance with main transitions
 for i in building_list:
-    building_main =  pd.read_csv(f"building_{i}_main_transients.csv")
+    building_main =  pd.read_csv(f"{output_dir}/building_{i}_main_transients.csv")
 
     for appliance in appliance_names:
         logger.info(f"Processing building {i}, appliance: {appliance}")
 
         try:
-            building_app = pd.read_csv(f"building_{i}_{appliance}_transients.csv")
+            building_app = pd.read_csv(f"{output_dir}/building_{i}_{appliance}_transients.csv")
         except FileNotFoundError:
             logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
             continue
@@ -63,14 +64,14 @@ for i in building_list:
         logger.info(f"main: {len(building_main)}, {appliance}: {len(building_app)}, not found: {len(not_found_list)}")
         # logger.info(not_found_list)
 
-    building_main.to_csv(f"building_{i}_main_transients_train.csv")
+    building_main.to_csv(f"{output_dir}/building_{i}_main_transients_train.csv")
 
 # Match rising and falling edges to get duration
 for i in building_list:
     logger.info(f"Processing building {i}")
 
     # Load data
-    df = pd.read_csv(f"building_{i}_main_transients_train.csv", index_col=0)
+    df = pd.read_csv(f"{output_dir}/building_{i}_main_transients_train.csv", index_col=0)
 
     results = []
 
@@ -113,6 +114,6 @@ for i in building_list:
     matched_df = pd.DataFrame(results)
 
     # Save if needed
-    matched_df.to_csv(f"building_{i}_matched_transitions.csv", index=False)
+    matched_df.to_csv(f"{output_dir}/building_{i}_matched_transitions.csv", index=False)
 
     logger.info(f"Total matches: {len(matched_df) * 2} / {len(df)}")

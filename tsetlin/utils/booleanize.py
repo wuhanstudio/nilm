@@ -44,7 +44,7 @@ def booleanize_features(X, mean, std, num_bits: int=8):
     # Normalization to [0, 255]
     for i in tqdm(range(len(X)), desc="Normalizing features"):
         for j in range(len(X[i])):
-            if isinstance(mean, list) and isinstance(std, list):
+            if len(mean) > 1 and len(std) > 1:
                 X[i][j] = (X[i][j] - mean[j]) / std[j]
             else:
                 X[i][j] = (X[i][j] - mean) / std

@@ -11,13 +11,14 @@ from tsetlin.utils.booleanize import booleanize_features
 from tsetlin.utils.split import train_test_split
 from tsetlin.compiler.write import tsetlin_compile
 
-building_list = [1, 2, 3, 4, 5, 6]
+building_list_train = [1, 2, 4, 5, 6]
+building_list_test  = [3]
 output_dir = "temp"
 
 # appliance_names = ["fridge", "microwave"]
-# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "CE appliance"]
-appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 
 # Not working ones
 # appliance_names = ["washer dryer"] # Bug
@@ -28,54 +29,68 @@ appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "un
 # Auto generate dictionary for appliances
 appliance_dict = {name: idx for idx, name in enumerate(appliance_names)}
 
-redd_data = pd.DataFrame()
-# Concatenate matched transitions for each building
-for i in building_list:
+def read_redd_data(building_list, appliance_names, output_dir):
+    redd_data = pd.DataFrame()
+    # Concatenate matched transitions for each building
+    for i in building_list:
+        for appliance in appliance_names:
+            try:
+                df = pd.read_csv(f"{output_dir}/building_{i}_{appliance}_matched_transitions.csv")
+                redd_data = pd.concat([redd_data, df], ignore_index=True)
+            except FileNotFoundError:
+                logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
+            except pd.errors.EmptyDataError:
+                logger.warning(f"File for building {i}, appliance {appliance} is empty. Skipping...")
+        
+        if 'unknown' in appliance_names:
+            try:
+                df = pd.read_csv(f"{output_dir}/building_{i}_matched_transitions.csv")
+                df = df[df['appliance'] == 'unknown']
+                redd_data = pd.concat([redd_data, df], ignore_index=True)
+            except FileNotFoundError:
+                logger.warning(f"File for building {i}, appliance unknown not found. Skipping...")
+            except pd.errors.EmptyDataError:
+                logger.warning(f"File for building {i}, appliance unknown is empty. Skipping...")
+
+    # Draw a scatter plot of duration vs transition for each appliance
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
     for appliance in appliance_names:
-        try:
-            df = pd.read_csv(f"{output_dir}/building_{i}_{appliance}_matched_transitions.csv")
-            redd_data = pd.concat([redd_data, df], ignore_index=True)
-        except FileNotFoundError:
-            logger.warning(f"File for building {i}, appliance {appliance} not found. Skipping...")
-        except pd.errors.EmptyDataError:
-            logger.warning(f"File for building {i}, appliance {appliance} is empty. Skipping...")
-    
-    if 'unknown' in appliance_names:
-        try:
-            df = pd.read_csv(f"{output_dir}/building_{i}_matched_transitions.csv")
-            df = df[df['appliance'] == 'unknown']
-            redd_data = pd.concat([redd_data, df], ignore_index=True)
-        except FileNotFoundError:
-            logger.warning(f"File for building {i}, appliance unknown not found. Skipping...")
-        except pd.errors.EmptyDataError:
-            logger.warning(f"File for building {i}, appliance unknown is empty. Skipping...")
+        subset = redd_data[redd_data['appliance'] == appliance]
+        plt.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
 
-# Draw a scatter plot of duration vs transition for each appliance
-import matplotlib.pyplot as plt
-plt.figure(figsize=(10, 6))
-for appliance in appliance_names:
-    subset = redd_data[redd_data['appliance'] == appliance]
-    plt.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
+    plt.xlabel('Transition')
+    plt.ylabel('Duration')
+    plt.title('Transition vs Duration for Appliances')
+    plt.legend()
+    plt.show()
 
-plt.xlabel('Transition')
-plt.ylabel('Duration')
-plt.title('Transition vs Duration for Appliances')
-plt.legend()
-plt.show()
+    redd_data['label'] = redd_data['appliance'].map(appliance_dict)
 
-redd_data['label'] = redd_data['appliance'].map(appliance_dict)
+    X = redd_data[['transition', 'duration']]
+    y = redd_data['label']
 
-X = redd_data[['transition', 'duration']]
-y = redd_data['label']
+    # Convert dataframe to numpy array
+    X = X.values
+    y = y.values
 
-# Convert dataframe to numpy array
-X = X.values
-y = y.values
+    return X, y
 
-# Save the data to a CSV file
-data_df = pd.DataFrame(X, columns=['transition', 'duration'])
-data_df['label'] = y
-data_df.to_csv('redd_data.csv', index=False)
+# Read the REDD data for training
+X_train, y_train = read_redd_data(building_list_train, appliance_names, output_dir)
+
+# Save the training data to a CSV file
+train_data_df = pd.DataFrame(X_train, columns=['transition', 'duration'])
+train_data_df['label'] = y_train
+train_data_df.to_csv('redd_data_train.csv', index=False)
+
+# Read the REDD data for testing
+X_test, y_test = read_redd_data(building_list_test, appliance_names, output_dir)
+
+# Save the test data to a CSV file
+test_data_df = pd.DataFrame(X_test, columns=['transition', 'duration'])
+test_data_df['label'] = y_test
+test_data_df.to_csv('redd_data_test.csv', index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tsetlin Machine on Iris Dataset")
@@ -97,16 +112,17 @@ if __name__ == "__main__":
         raise ValueError("n_bit must be one of [1, 2, 4, 8]")
 
     # Normalization
-    X_mean = np.mean(X)
-    X_std = np.std(X)
+    X_mean = np.mean(X_train, axis=0)
+    X_std = np.std(X_train, axis=0)
 
     logger.info(f"Feature mean: {X_mean}, Feature std: {X_std}")
 
     logger.info(f"Using {N_BIT} bits for booleanization")
-    X_bool = booleanize_features(X, X_mean, X_std, num_bits=N_BIT)
+    X_train = booleanize_features(X_train, X_mean, X_std, num_bits=N_BIT)
+    X_test = booleanize_features(X_test, X_mean, X_std, num_bits=N_BIT)
 
     # Train-test split
-    X_train, X_test, y_train, y_test = train_test_split(X_bool, y, test_size=0.2, random_state=0)
+    # X_train, X_test, y_train, y_test = train_test_split(X_bool, y, test_size=0.2, random_state=0)
 
     N_CLAUSE = args.n_clause
     N_STATE  = args.n_state
@@ -114,7 +130,7 @@ if __name__ == "__main__":
     logger.info(f"Number of clauses: {N_CLAUSE}, Number of states: {N_STATE}")
     logger.info(f"Threshold T: {args.T}, Specificity s: {args.s}")
 
-    m_tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y)), N_clause=N_CLAUSE, N_state=N_STATE)
+    m_tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y_train)), N_clause=N_CLAUSE, N_state=N_STATE)
 
     y_pred = m_tsetlin.predict(X_test)
     accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
