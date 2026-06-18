@@ -12,6 +12,18 @@
 <!-- TOC --><a name="on-device-nilm"></a>
 # On-Device NILM
 
+```
+git clone --recursive https://github.com/wuhanstudio/nilm
+uv sync
+
+uv run python redd_edge_detect.py --plot
+uv run python redd_edge_match.py --plot
+uv run python redd_event_pair.py --plot
+uv run python redd_tm_training.py
+
+uv run python main.py
+uv run python main_real_time.py
+```
 
 <!-- TOC --><a name="prerequisites"></a>
 ## Prerequisites
@@ -86,7 +98,7 @@ Each column is the activate power of an appliance.
 Before training a ML model, we need to find rising edges and falling edges.
 
 ```
-$ python main_plot.py
+$ python redd_edge_detect.py --plot
 ```
 
 The above script runs edge detection on Building 1 (main meter, fridge and microwave).
