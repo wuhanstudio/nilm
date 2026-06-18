@@ -7,3 +7,4 @@ __pycache__/
 !iris.csv
 tsetlin_model.h
 *_model.h
+temp/
