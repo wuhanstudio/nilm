@@ -583,6 +583,8 @@ if __name__ == "__main__":
                         }
                     )
 
+                    df_output.loc[p['start']:p['end'], pred_label] = 1
+
                 if not features_df.empty:
                     features_df.to_csv(f"{output_dir}/building_{building_id}_main_matched_features_inference.csv", index=False)
 
@@ -591,9 +593,6 @@ if __name__ == "__main__":
 
                 logger.info(f"Total transitions: {len(transients)}")
                 logger.info(f"Total matches: {len(matched_df) * 2}")
-
-                for res in results:
-                    df_output.loc[res['start']:res['end'], res['appliance']] = 1
 
                 plot_main_matches(
                     building_df=df,

@@ -450,6 +450,10 @@ if __name__ == "__main__":
         df = pd.read_csv(f"building_{i}_main_transients_train.csv", index_col=0)
         building_pairs = {}
 
+        # Output: Reset all appliance states as 0
+        df_output = building_raw.copy()
+        df_output.loc[:, df_output.columns != "main"] = 0
+
         for appliance in selected_appliances:
             logger.info(f"Processing appliance {appliance}")
 
@@ -489,7 +493,7 @@ if __name__ == "__main__":
                          "neg_delta": pair["fall_power"]
                          }
                     )
-                    building_raw.loc[int(pair["rise_time"]):int(pair["fall_time"]), f"{appliance}"] = 1
+                    df_output.loc[int(pair["rise_time"]):int(pair["fall_time"]), f"{appliance}"] = 1
 
                     # Append the matched row to a new DataFrame
                     matched_events.append(episode | matched_row)
@@ -504,4 +508,4 @@ if __name__ == "__main__":
                 window_size=args.window_size,
             )
 
-        building_raw.to_csv(f"building_{i}_labeled.csv", index=False)
+        df_output.to_csv(f"building_{i}_labeled.csv", index=False)
