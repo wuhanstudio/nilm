@@ -1,12 +1,16 @@
+import argparse
 import pandas as pd
 from loguru import logger
 
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
 from scipy.signal import medfilt
 from sklearn.cluster import KMeans
 
 building_list = [1, 2, 3, 4, 5, 6]
-appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
+appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 
 def best_subset_dp(active, target, max_subset_size=6):
     """
@@ -198,14 +202,255 @@ def episode_feature_row(values: np.ndarray, episode: Mapping[str, Any]) -> Dict[
         "event_internal_edge_count": float(np.count_nonzero(np.abs(delta) >= 50.0)) if len(delta) else 0.0,
     }
 
+
+def plot_matched_edges(
+    building_raw: pd.DataFrame,
+    pairs: Sequence[Mapping[str, Any]],
+    appliance: str,
+    window_size: int = 2000,
+) -> None:
+    if "main" not in building_raw.columns:
+        logger.warning("Column 'main' is missing in building_raw. Skipping plot.")
+        return
+
+    if building_raw.empty:
+        logger.warning("building_raw is empty. Skipping plot.")
+        return
+
+    values = pd.to_numeric(building_raw["main"], errors="coerce").fillna(method="ffill").fillna(method="bfill").fillna(0.0).to_numpy(dtype=np.float64)
+    x = building_raw.index.to_numpy()
+
+    window_size = min(max(1, int(window_size)), len(building_raw))
+    max_start = max(0, len(building_raw) - window_size)
+
+    rises = np.asarray([int(p["rise_time"]) for p in pairs], dtype=np.int64) if pairs else np.asarray([], dtype=np.int64)
+    falls = np.asarray([int(p["fall_time"]) for p in pairs], dtype=np.int64) if pairs else np.asarray([], dtype=np.int64)
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    plt.subplots_adjust(bottom=0.2)
+
+    line_main, = ax.plot(x[:window_size], values[:window_size], color="black", linewidth=1.0, label="main")
+
+    rise_vlines = []
+    fall_vlines = []
+
+    y_min = float(np.nanmin(values))
+    y_max = float(np.nanmax(values))
+    if y_min == y_max:
+        y_min -= 1.0
+        y_max += 1.0
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlim(x[0], x[window_size - 1])
+    ax.set_title(f"Matched edges on main signal - {appliance}")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Power (W)")
+    ax.grid(alpha=0.25)
+
+    legend_handles = [
+        plt.Line2D([0], [0], color="black", linewidth=1.0, label="main"),
+        plt.Line2D([0], [0], color="tab:green", linestyle="--", label="rise"),
+        plt.Line2D([0], [0], color="tab:red", linestyle="--", label="fall"),
+    ]
+    ax.legend(handles=legend_handles, loc="upper right")
+
+    slider_ax = fig.add_axes([0.15, 0.07, 0.72, 0.04])
+    slider = Slider(
+        ax=slider_ax,
+        label="Scroll",
+        valmin=0,
+        valmax=max_start,
+        valinit=0,
+        valstep=1,
+    )
+
+    def redraw_edge_lines(left_idx: int, right_idx: int) -> None:
+        nonlocal rise_vlines, fall_vlines
+
+        for ln in rise_vlines:
+            ln.remove()
+        for ln in fall_vlines:
+            ln.remove()
+        rise_vlines = []
+        fall_vlines = []
+
+        if len(rises) > 0:
+            visible_rises = rises[(rises >= left_idx) & (rises <= right_idx)]
+            for rx in visible_rises:
+                rise_vlines.append(ax.axvline(x=rx, color="tab:green", linestyle="--", alpha=0.6))
+
+        if len(falls) > 0:
+            visible_falls = falls[(falls >= left_idx) & (falls <= right_idx)]
+            for fx in visible_falls:
+                fall_vlines.append(ax.axvline(x=fx, color="tab:red", linestyle="--", alpha=0.6))
+
+    redraw_edge_lines(0, window_size - 1)
+
+    def update(val: float) -> None:
+        start = int(val)
+        end = start + window_size
+
+        x_window = x[start:end]
+        y_window = values[start:end]
+        line_main.set_data(x_window, y_window)
+        ax.set_xlim(x_window[0], x_window[-1])
+
+        redraw_edge_lines(start, end - 1)
+        fig.canvas.draw_idle()
+
+    slider.on_changed(update)
+    plt.show()
+
+
+def plot_all_matched_edges(
+    building_raw: pd.DataFrame,
+    appliance_pairs: Mapping[str, Sequence[Mapping[str, Any]]],
+    window_size: int = 2000,
+) -> None:
+    if "main" not in building_raw.columns:
+        logger.warning("Column 'main' is missing in building_raw. Skipping plot.")
+        return
+
+    if building_raw.empty:
+        logger.warning("building_raw is empty. Skipping plot.")
+        return
+
+    values = (
+        pd.to_numeric(building_raw["main"], errors="coerce")
+        .ffill()
+        .bfill()
+        .fillna(0.0)
+        .to_numpy(dtype=np.float64)
+    )
+    x = building_raw.index.to_numpy()
+
+    window_size = min(max(1, int(window_size)), len(building_raw))
+    max_start = max(0, len(building_raw) - window_size)
+
+    non_empty_apps = [name for name, pairs in appliance_pairs.items() if pairs]
+    if not non_empty_apps:
+        logger.warning("No matched pairs found for any appliance. Skipping plot.")
+        return
+
+    cmap = plt.get_cmap("tab10")
+    appliance_color = {app: cmap(i % 10) for i, app in enumerate(non_empty_apps)}
+
+    rise_dict = {
+        app: np.asarray([int(p["rise_time"]) for p in pairs], dtype=np.int64)
+        for app, pairs in appliance_pairs.items()
+        if pairs
+    }
+    fall_dict = {
+        app: np.asarray([int(p["fall_time"]) for p in pairs], dtype=np.int64)
+        for app, pairs in appliance_pairs.items()
+        if pairs
+    }
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    plt.subplots_adjust(bottom=0.22)
+
+    line_main, = ax.plot(x[:window_size], values[:window_size], color="black", linewidth=1.0, label="main")
+
+    y_min = float(np.nanmin(values))
+    y_max = float(np.nanmax(values))
+    if y_min == y_max:
+        y_min -= 1.0
+        y_max += 1.0
+
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlim(x[0], x[window_size - 1])
+    ax.set_title("Matched rising/falling edges on main signal (all appliances)")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Power (W)")
+    ax.grid(alpha=0.25)
+
+    edge_lines = []
+
+    def redraw_edge_lines(left_idx: int, right_idx: int) -> None:
+        nonlocal edge_lines
+        for ln in edge_lines:
+            ln.remove()
+        edge_lines = []
+
+        for app in non_empty_apps:
+            color = appliance_color[app]
+            rises = rise_dict[app]
+            falls = fall_dict[app]
+
+            visible_rises = rises[(rises >= left_idx) & (rises <= right_idx)]
+            visible_falls = falls[(falls >= left_idx) & (falls <= right_idx)]
+
+            for rx in visible_rises:
+                edge_lines.append(ax.axvline(x=rx, color=color, linestyle="--", alpha=0.75))
+            for fx in visible_falls:
+                edge_lines.append(ax.axvline(x=fx, color=color, linestyle="-", alpha=0.35))
+
+    redraw_edge_lines(0, window_size - 1)
+
+    legend_handles = [
+        plt.Line2D([0], [0], color="black", linewidth=1.0, label="main"),
+    ]
+    legend_handles.extend(
+        [
+            plt.Line2D([0], [0], color=appliance_color[app], linewidth=2.0, label=app)
+            for app in non_empty_apps
+        ]
+    )
+    legend_handles.extend(
+        [
+            plt.Line2D([0], [0], color="gray", linestyle="--", label="rise"),
+            plt.Line2D([0], [0], color="gray", linestyle="-", label="fall"),
+        ]
+    )
+    ax.legend(handles=legend_handles, loc="upper right", ncol=2)
+
+    slider_ax = fig.add_axes([0.15, 0.08, 0.72, 0.04])
+    slider = Slider(
+        ax=slider_ax,
+        label="Scroll",
+        valmin=0,
+        valmax=max_start,
+        valinit=0,
+        valstep=1,
+    )
+
+    def update(val: float) -> None:
+        start = int(val)
+        end = start + window_size
+
+        x_window = x[start:end]
+        y_window = values[start:end]
+        line_main.set_data(x_window, y_window)
+        ax.set_xlim(x_window[0], x_window[-1])
+
+        redraw_edge_lines(start, end - 1)
+        fig.canvas.draw_idle()
+
+    slider.on_changed(update)
+    plt.show()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Pair REDD events and optionally plot matched edges")
+    parser.add_argument("--plot", action="store_true", help="Show interactive matched-edge plot")
+    parser.add_argument("--window-size", type=int, default=2000, help="Visible samples per plot window")
+    parser.add_argument("--building-id", type=int, default=None, help="Process a single building id (1-6)")
+    parser.add_argument("--appliance", type=str, default=None, help="Process a single appliance name")
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    for i in building_list:
+    args = parse_args()
+
+    selected_buildings = [args.building_id] if args.building_id is not None else building_list
+    selected_appliances = [args.appliance] if args.appliance is not None else appliance_names
+
+    for i in selected_buildings:
         logger.info(f"========== Processing building {i} ==========")
 
         building_raw = pd.read_csv(f"building_{i}_raw.csv")
         df = pd.read_csv(f"building_{i}_main_transients_train.csv", index_col=0)
+        building_pairs = {}
 
-        for appliance in appliance_names:
+        for appliance in selected_appliances:
             logger.info(f"Processing appliance {appliance}")
 
             pairs, unmatched_on, unmatched_off = match_edges_stateful(
@@ -221,6 +466,7 @@ if __name__ == "__main__":
                 logger.info(f"\tMatched: {len(pairs)}")
                 logger.info(f"\tUnmatched rises: {len(unmatched_on)}")
                 logger.info(f"\tUnmatched falls: {len(unmatched_off)}")
+                building_pairs[appliance] = pairs
 
                 matched_events = []
 
@@ -250,5 +496,12 @@ if __name__ == "__main__":
 
                 pairs_df = pd.DataFrame(matched_events)
                 pairs_df.to_csv(f"temp/building_{i}_{appliance}_matched_transitions.csv", index=False)
+
+        if args.plot:
+            plot_all_matched_edges(
+                building_raw=building_raw,
+                appliance_pairs=building_pairs,
+                window_size=args.window_size,
+            )
 
         building_raw.to_csv(f"building_{i}_labeled.csv", index=False)
