@@ -1,3 +1,55 @@
+// Install TFT_eSPI and LVGL arduino library
+// - TFT_eSPI Setup: https://github.com/witnessmenow/ESP32-Cheap-Yellow-Display/blob/main/DisplayConfig/User_Setup.h
+// - LVGL Setup: https://github.com/witnessmenow/ESP32-Cheap-Yellow-Display/blob/main/Examples/LVGL9/lv_conf.h
+
+//  * Note you MUST move the 'examples' and 'demos' folders into the 'src' folder inside the lvgl library folder
+// In `Arduino\libraries\lvgl\src\demos\widgets\lv_demo_widgets.h`, replace
+
+// ```
+// #include "../lv_demos.h"
+// #include "../../src/draw/lv_draw.h"
+// #include "../../src/draw/lv_draw_triangle.h"
+// ```
+
+// with
+
+// ```
+// #include "../lv_demos.h"
+// #include "../../draw/lv_draw.h"
+// #include "../../draw/lv_draw_triangle.h"
+// ```
+
+#include <SPI.h>
+#include <SD.h>
+
+#include <lvgl.h>
+#include <TFT_eSPI.h>
+
+#include <examples/lv_examples.h>
+#include <demos/lv_demos.h>
+
+/*Set to your screen resolution and rotation*/
+#define TFT_HOR_RES 240
+#define TFT_VER_RES 320
+#define TFT_ROTATION LV_DISPLAY_ROTATION_90
+
+/*LVGL draw into this buffer, 1/10 screen size usually works well. The size is in bytes*/
+#define DRAW_BUF_SIZE (TFT_HOR_RES * TFT_VER_RES / 10 * (LV_COLOR_DEPTH / 8))
+
+#if LV_USE_LOG != 0
+void my_print(lv_log_level_t level, const char* buf) {
+  LV_UNUSED(level);
+  Serial.println(buf);
+  Serial.flush();
+}
+#endif
+
+/* LVGL calls it when a rendered image needs to copied to the display*/
+void my_disp_flush(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
+  /*Call it to tell LVGL you are ready*/
+  lv_disp_flush_ready(disp);
+}
+
 #include <tsetlin.h>
 
 #include "redd.h"
@@ -6,6 +58,15 @@
 
 #define Console Serial
 static const char* TAG = "main";
+
+/* =========================
+   ESP32 SD SPI PINS
+   Change if needed
+   ========================= */
+#define SD_SCK  18
+#define SD_MISO 19
+#define SD_MOSI 23
+#define SD_CS    5
 
 #ifdef __AVR__
 FILE f_out;
@@ -21,18 +82,17 @@ extern "C" int _write(int file, char* ptr, int len) {
   return len;
 }
 
-void print_progress(const char *label, int percent) 
-{
-    const int bar_width = 40;
-    int filled = percent * bar_width / 100;
+void print_progress(const char* label, int percent) {
+  const int bar_width = 40;
+  int filled = percent * bar_width / 100;
 
-    printf("%s [", label);
-    for (int i = 0; i < bar_width; i++) {
-        if (i < filled) printf("=");
-        else printf(" ");
-    }
-    printf("] %3d%%\n", percent);  // stay on same line
-    // fflush(stdout);
+  printf("%s [", label);
+  for (int i = 0; i < bar_width; i++) {
+    if (i < filled) printf("=");
+    else printf(" ");
+  }
+  printf("] %3d%%\n", percent);  // stay on same line
+                                 // fflush(stdout);
 }
 
 int tm_redd_main() {
@@ -65,14 +125,14 @@ int tm_redd_main() {
     uint8_t* bool_input = redd_booleanize_features(X_norm, REDD_MODEL_BITS);
     total_boolean_time += (micros() - start_bool);
 
-    if(bool_input != NULL) {
+    if (bool_input != NULL) {
       // Evaluate
       uint32_t start_calc = micros();
       tsetlin_evaluate(model, bool_input, votes, &predicted_class);
       total_calc_time += (micros() - start_calc);
 
       free(bool_input);
-    
+
       // for (size_t i = 0; i < model->n_class; i++) {
       //   LOGI(TAG, "Class %d: %d votes", i, votes[i]);
       // }
@@ -80,14 +140,14 @@ int tm_redd_main() {
       // LOGI(TAG, "");
 
       if (predicted_class == redd_y_test[i]) {
-            correct++;
+        correct++;
       }
 
       // Print progress every 1000 images
       if ((i + 1) % 100 == 0) {
-          char message[32];
-          snprintf(message, sizeof(message), "Testing %d/%d", i + 1, REDD_TEST_SAMPLES);
-          print_progress(message, (i + 1) * 100 / REDD_TEST_SAMPLES);
+        char message[32];
+        snprintf(message, sizeof(message), "Testing %d/%d", i + 1, REDD_TEST_SAMPLES);
+        print_progress(message, (i + 1) * 100 / REDD_TEST_SAMPLES);
       }
     }
   }
@@ -95,10 +155,34 @@ int tm_redd_main() {
   printf("[BOOL] Achieved %d us/image\n", (int)(total_boolean_time / REDD_TEST_SAMPLES));
   printf("[TM] Achieved %d us/image\n", (int)(total_calc_time / REDD_TEST_SAMPLES));
 
-  printf("Correct predictions on test set %d / %d\n", (int) correct, (int) REDD_TEST_SAMPLES);
+  printf("Correct predictions on test set %d / %d\n", (int)correct, (int)REDD_TEST_SAMPLES);
 
   return 0;
 }
+
+void printDirectory(File dir) {
+  while (true) {
+    File entry = dir.openNextFile();
+    if (!entry) {
+      // no more files
+      break;
+    }
+
+    if (entry.isDirectory()) {
+      LOGI(TAG, "/");
+      printDirectory(entry);
+    } else {
+      // files have sizes, directories do not
+      LOGI(TAG, "%s | %d Bytes", entry.name(), entry.size());
+    }
+    entry.close();
+  }
+}
+
+uint8_t* draw_buf;      //draw_buf is allocated on heap otherwise the static area is too big on ESP32 at compile
+uint32_t lastTick = 0;  //Used to track the tick timer
+
+File fp;
 
 void setup() {
   // Initialize Console
@@ -108,12 +192,68 @@ void setup() {
   stdout = &f_out;
 #endif
   while (!Serial) { ; }
+
+  //Initialise LVGL
+  lv_init();
+  draw_buf = new uint8_t[DRAW_BUF_SIZE];
+  lv_display_t* disp;
+  disp = lv_tft_espi_create(TFT_HOR_RES, TFT_VER_RES, draw_buf, DRAW_BUF_SIZE);
+  lv_display_set_rotation(disp, TFT_ROTATION);
+
+  //Or try out the large standard widgets demo
+  // lv_demo_widgets();
+  lv_demo_benchmark();
+  // lv_demo_keypad_encoder();
+
+  LOGI(TAG, "Initializing SD card...");
+  if (!SD.begin(SD_CS)) {
+    LOGE(TAG, "SD card initialization failed!");
+    while (1) {
+      delay(1000);
+    }
+  }
+  LOGI(TAG, "SD card initialized.");
+
+  // Print files on the SD card
+  File root = SD.open("/");
+  if (root) {
+    printDirectory(root);
+  } else {
+    LOGI(TAG, "Could not open root");
+  }
+  root.close();
+
+  fp = SD.open("/main.bin", "rb");
+
+  if (fp == NULL) {
+    Serial.println("Please upload data\n");
+    while (1)
+      ;
+  }
 }
 
+uint32_t lastNILMTick = 0;  //Used to track the tick timer
+
 void loop() {
-    int ret = tm_redd_main();
-    if (ret < 0) {
-      LOGE(TAG, "Inference Failed.");
+  // int ret = tm_redd_main();
+  // if (ret < 0) {
+  //   LOGE(TAG, "Inference Failed.");
+  // }
+
+  float value;
+  if (millis() - lastNILMTick > 1000) {
+    if (fp != NULL) {
+      if (fp.read((uint8_t*)&value, sizeof(float)) == sizeof(float)) {
+        Serial.println(value);
+      } else {
+        fp.seek(0);
+      }
     }
-    delay(10000);
+    lastNILMTick = millis();
+  }
+
+  lv_tick_inc(millis() - lastTick);  //Update the tick timer. Tick is new for LVGL 9
+  lastTick = millis();
+  lv_timer_handler();  //Update the UI
+  delay(5);
 }
