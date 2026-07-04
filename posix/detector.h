@@ -1,13 +1,31 @@
-#ifndef DETECTOR_POSIX_H
-#define DETECTOR_POSIX_H
+#ifndef __DETECTOR_H__
+#define __DETECTOR_H__
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef EDGE_DETECTOR_MALLOC
+#include <stdlib.h>
+#define EDGE_DETECTOR_MALLOC(sz) malloc(sz)
+#define EDGE_DETECTOR_CALLOC(n, sz) calloc((n), (sz))
+#define EDGE_DETECTOR_REALLOC(ptr, sz) realloc((ptr), (sz))
+#define EDGE_DETECTOR_FREE(ptr) free(ptr)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * On Arduino ESP32 you can override allocator hooks before including this file,
+ * for example to place allocations in PSRAM:
+ *
+ *   #define EDGE_DETECTOR_MALLOC(sz) heap_caps_malloc((sz), MALLOC_CAP_SPIRAM)
+ *   #define EDGE_DETECTOR_CALLOC(n, sz) heap_caps_calloc((n), (sz), MALLOC_CAP_SPIRAM)
+ *   #define EDGE_DETECTOR_REALLOC(ptr, sz) heap_caps_realloc((ptr), (sz), MALLOC_CAP_SPIRAM)
+ *   #define EDGE_DETECTOR_FREE(ptr) heap_caps_free((ptr))
+ */
 
 typedef struct {
     bool transition;
@@ -83,4 +101,4 @@ size_t edge_detector_num_transitions(const EdgeDetector *detector);
 }
 #endif
 
-#endif
+#endif // __DETECTOR_H__

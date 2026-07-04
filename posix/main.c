@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "detector_posix.h"
+#include "detector.h"
 
 int main(void) {
     EdgeDetector detector;
@@ -30,6 +30,11 @@ int main(void) {
                 output.transition_power_change,
                 output.transition_data_len
             );
+            printf("transition data: ");
+            for (size_t i = 0; i < output.transition_data_len; i++) {
+                printf("%.2f ", output.transition_data[i]);
+            }
+            printf("\n");
         }
     }
 

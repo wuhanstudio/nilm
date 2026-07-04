@@ -1,4 +1,4 @@
-#include "detector_posix.h"
+#include "detector.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -17,7 +17,7 @@ static int ensure_double_capacity(EdgeDetectorDoubleVec *vec, size_t needed) {
         new_cap *= 2;
     }
 
-    double *new_data = (double *)realloc(vec->data, new_cap * sizeof(double));
+    double *new_data = (double *)EDGE_DETECTOR_REALLOC(vec->data, new_cap * sizeof(double));
     if (!new_data) {
         return -1;
     }
@@ -40,7 +40,7 @@ static int ensure_i64_capacity(EdgeDetectorI64Vec *vec, size_t needed) {
         new_cap *= 2;
     }
 
-    int64_t *new_data = (int64_t *)realloc(vec->data, new_cap * sizeof(int64_t));
+    int64_t *new_data = (int64_t *)EDGE_DETECTOR_REALLOC(vec->data, new_cap * sizeof(int64_t));
     if (!new_data) {
         return -1;
     }
@@ -75,14 +75,14 @@ static void clear_i64_vec(EdgeDetectorI64Vec *vec) {
 }
 
 static void free_double_vec(EdgeDetectorDoubleVec *vec) {
-    free(vec->data);
+    EDGE_DETECTOR_FREE(vec->data);
     vec->data = NULL;
     vec->len = 0;
     vec->cap = 0;
 }
 
 static void free_i64_vec(EdgeDetectorI64Vec *vec) {
-    free(vec->data);
+    EDGE_DETECTOR_FREE(vec->data);
     vec->data = NULL;
     vec->len = 0;
     vec->cap = 0;
@@ -144,7 +144,7 @@ int edge_detector_init(
     detector->last_steady_power = current_measurement;
 
     if (min_n_samples > 0) {
-        detector->instantaneous_change_queue = (bool *)calloc(min_n_samples, sizeof(bool));
+        detector->instantaneous_change_queue = (bool *)EDGE_DETECTOR_CALLOC(min_n_samples, sizeof(bool));
         if (!detector->instantaneous_change_queue) {
             edge_detector_free(detector);
             return -1;
@@ -159,7 +159,7 @@ void edge_detector_free(EdgeDetector *detector) {
         return;
     }
 
-    free(detector->instantaneous_change_queue);
+    EDGE_DETECTOR_FREE(detector->instantaneous_change_queue);
     detector->instantaneous_change_queue = NULL;
     detector->instantaneous_change_queue_len = 0;
 
