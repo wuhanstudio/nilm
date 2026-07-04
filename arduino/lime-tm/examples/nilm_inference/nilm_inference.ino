@@ -183,6 +183,33 @@ uint8_t* draw_buf;      //draw_buf is allocated on heap otherwise the static are
 uint32_t lastTick = 0;  //Used to track the tick timer
 
 File fp;
+lv_obj_t* power_chart = nullptr;
+lv_chart_series_t* power_series = nullptr;
+lv_obj_t* value_label = nullptr;
+float chart_min = 0.0f;
+float chart_max = 1000.0f;
+
+void create_chart_ui() {
+  lv_obj_t* scr = lv_scr_act();
+
+  value_label = lv_label_create(scr);
+  lv_label_set_text(value_label, "Value: --");
+  lv_obj_align(value_label, LV_ALIGN_TOP_MID, 0, 8);
+
+  power_chart = lv_chart_create(scr);
+  lv_obj_set_size(power_chart, TFT_HOR_RES - 20, TFT_VER_RES - 50);
+  lv_obj_align(power_chart, LV_ALIGN_BOTTOM_MID, 0, -6);
+  lv_chart_set_type(power_chart, LV_CHART_TYPE_LINE);
+  lv_chart_set_point_count(power_chart, 60);
+  lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
+  lv_chart_set_div_line_count(power_chart, 5, 6);
+
+  power_series = lv_chart_add_series(power_chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
+
+  for (uint16_t i = 0; i < 60; i++) {
+    lv_chart_set_next_value(power_chart, power_series, 0);
+  }
+}
 
 void setup() {
   // Initialize Console
@@ -202,8 +229,10 @@ void setup() {
 
   //Or try out the large standard widgets demo
   // lv_demo_widgets();
-  lv_demo_benchmark();
+  // lv_demo_benchmark();
   // lv_demo_keypad_encoder();
+
+  create_chart_ui();
 
   LOGI(TAG, "Initializing SD card...");
   if (!SD.begin(SD_CS)) {
@@ -245,6 +274,21 @@ void loop() {
     if (fp != NULL) {
       if (fp.read((uint8_t*)&value, sizeof(float)) == sizeof(float)) {
         Serial.println(value);
+
+        if (value < chart_min) {
+          chart_min = value;
+          lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
+        }
+        if (value > chart_max) {
+          chart_max = value;
+          lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
+        }
+
+        lv_chart_set_next_value(power_chart, power_series, (lv_coord_t)value);
+
+        char label_text[32];
+        snprintf(label_text, sizeof(label_text), "Value: %.2f", value);
+        lv_label_set_text(value_label, label_text);
       } else {
         fp.seek(0);
       }
