@@ -22,39 +22,13 @@
 #include <SPI.h>
 #include <SD.h>
 
-#include <lvgl.h>
-#include <TFT_eSPI.h>
-
-#include <examples/lv_examples.h>
-#include <demos/lv_demos.h>
-
-/*Set to your screen resolution and rotation*/
-#define TFT_HOR_RES 240
-#define TFT_VER_RES 320
-#define TFT_ROTATION LV_DISPLAY_ROTATION_90
-
-/*LVGL draw into this buffer, 1/10 screen size usually works well. The size is in bytes*/
-#define DRAW_BUF_SIZE (TFT_HOR_RES * TFT_VER_RES / 10 * (LV_COLOR_DEPTH / 8))
-
-#if LV_USE_LOG != 0
-void my_print(lv_log_level_t level, const char* buf) {
-  LV_UNUSED(level);
-  Serial.println(buf);
-  Serial.flush();
-}
-#endif
-
-/* LVGL calls it when a rendered image needs to copied to the display*/
-void my_disp_flush(lv_display_t* disp, const lv_area_t* area, uint8_t* px_map) {
-  /*Call it to tell LVGL you are ready*/
-  lv_disp_flush_ready(disp);
-}
-
 #include <tsetlin.h>
 
 #include "redd.h"
 #include "redd_test.h"
 #include "redd_model.h"
+
+#include "chart.h"
 
 #define Console Serial
 static const char* TAG = "main";
@@ -63,10 +37,10 @@ static const char* TAG = "main";
    ESP32 SD SPI PINS
    Change if needed
    ========================= */
-#define SD_SCK  18
+#define SD_SCK 18
 #define SD_MISO 19
 #define SD_MOSI 23
-#define SD_CS    5
+#define SD_CS 5
 
 #ifdef __AVR__
 FILE f_out;
@@ -160,56 +134,10 @@ int tm_redd_main() {
   return 0;
 }
 
-void printDirectory(File dir) {
-  while (true) {
-    File entry = dir.openNextFile();
-    if (!entry) {
-      // no more files
-      break;
-    }
-
-    if (entry.isDirectory()) {
-      LOGI(TAG, "/");
-      printDirectory(entry);
-    } else {
-      // files have sizes, directories do not
-      LOGI(TAG, "%s | %d Bytes", entry.name(), entry.size());
-    }
-    entry.close();
-  }
-}
-
-uint8_t* draw_buf;      //draw_buf is allocated on heap otherwise the static area is too big on ESP32 at compile
-uint32_t lastTick = 0;  //Used to track the tick timer
-
 File fp;
-lv_obj_t* power_chart = nullptr;
-lv_chart_series_t* power_series = nullptr;
-lv_obj_t* value_label = nullptr;
-float chart_min = 0.0f;
-float chart_max = 1000.0f;
-
-void create_chart_ui() {
-  lv_obj_t* scr = lv_scr_act();
-
-  value_label = lv_label_create(scr);
-  lv_label_set_text(value_label, "Value: --");
-  lv_obj_align(value_label, LV_ALIGN_TOP_MID, 0, 8);
-
-  power_chart = lv_chart_create(scr);
-  lv_obj_set_size(power_chart, TFT_HOR_RES - 20, TFT_VER_RES - 50);
-  lv_obj_align(power_chart, LV_ALIGN_BOTTOM_MID, 0, -6);
-  lv_chart_set_type(power_chart, LV_CHART_TYPE_LINE);
-  lv_chart_set_point_count(power_chart, 60);
-  lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
-  lv_chart_set_div_line_count(power_chart, 5, 6);
-
-  power_series = lv_chart_add_series(power_chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
-
-  for (uint16_t i = 0; i < 60; i++) {
-    lv_chart_set_next_value(power_chart, power_series, 0);
-  }
-}
+uint32_t lastNILMTick = 0;  //Used to track the tick timer
+uint32_t lastTick = 0;      //Used to track the tick timer
+int current_index = 0;
 
 void setup() {
   // Initialize Console
@@ -221,18 +149,12 @@ void setup() {
   while (!Serial) { ; }
 
   //Initialise LVGL
-  lv_init();
-  draw_buf = new uint8_t[DRAW_BUF_SIZE];
-  lv_display_t* disp;
-  disp = lv_tft_espi_create(TFT_HOR_RES, TFT_VER_RES, draw_buf, DRAW_BUF_SIZE);
-  lv_display_set_rotation(disp, TFT_ROTATION);
+  lv_ui_init();
 
   //Or try out the large standard widgets demo
   // lv_demo_widgets();
   // lv_demo_benchmark();
-  // lv_demo_keypad_encoder();
-
-  create_chart_ui();
+  lv_chart_ui();
 
   LOGI(TAG, "Initializing SD card...");
   if (!SD.begin(SD_CS)) {
@@ -243,25 +165,13 @@ void setup() {
   }
   LOGI(TAG, "SD card initialized.");
 
-  // Print files on the SD card
-  File root = SD.open("/");
-  if (root) {
-    printDirectory(root);
-  } else {
-    LOGI(TAG, "Could not open root");
-  }
-  root.close();
-
   fp = SD.open("/main.bin", "rb");
-
   if (fp == NULL) {
     Serial.println("Please upload data\n");
     while (1)
       ;
   }
 }
-
-uint32_t lastNILMTick = 0;  //Used to track the tick timer
 
 void loop() {
   // int ret = tm_redd_main();
@@ -273,22 +183,18 @@ void loop() {
   if (millis() - lastNILMTick > 1000) {
     if (fp != NULL) {
       if (fp.read((uint8_t*)&value, sizeof(float)) == sizeof(float)) {
+        // Initialize the chart using the first value
+        if (current_index == 0) {
+          for (uint16_t i = 0; i < LV_CHART_POINT; i++) {
+            // lv_chart_set_next_value(power_chart, power_series, (lv_coord_t)value);
+            lv_update_chart(value);
+          }
+        }
+
+        lv_update_chart(value);
         Serial.println(value);
 
-        if (value < chart_min) {
-          chart_min = value;
-          lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
-        }
-        if (value > chart_max) {
-          chart_max = value;
-          lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
-        }
-
-        lv_chart_set_next_value(power_chart, power_series, (lv_coord_t)value);
-
-        char label_text[32];
-        snprintf(label_text, sizeof(label_text), "Value: %.2f", value);
-        lv_label_set_text(value_label, label_text);
+        current_index = current_index + 1;
       } else {
         fp.seek(0);
       }
@@ -299,5 +205,6 @@ void loop() {
   lv_tick_inc(millis() - lastTick);  //Update the tick timer. Tick is new for LVGL 9
   lastTick = millis();
   lv_timer_handler();  //Update the UI
+
   delay(5);
 }
