@@ -129,35 +129,53 @@ nilm_posix/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/build
 .PHONY : nilm_posix/fast
 
-# target to build an object file
-detector.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/detector.o
+detector.o: detector.c.o
 .PHONY : detector.o
 
-# target to preprocess a source file
-detector.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/detector.i
+# target to build an object file
+detector.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/detector.c.o
+.PHONY : detector.c.o
+
+detector.i: detector.c.i
 .PHONY : detector.i
 
-# target to generate assembly for a file
-detector.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/detector.s
+# target to preprocess a source file
+detector.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/detector.c.i
+.PHONY : detector.c.i
+
+detector.s: detector.c.s
 .PHONY : detector.s
 
-# target to build an object file
-main.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/main.o
+# target to generate assembly for a file
+detector.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/detector.c.s
+.PHONY : detector.c.s
+
+main.o: main.c.o
 .PHONY : main.o
 
-# target to preprocess a source file
-main.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/main.i
+# target to build an object file
+main.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/main.c.o
+.PHONY : main.c.o
+
+main.i: main.c.i
 .PHONY : main.i
 
-# target to generate assembly for a file
-main.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/main.s
+# target to preprocess a source file
+main.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/main.c.i
+.PHONY : main.c.i
+
+main.s: main.c.s
 .PHONY : main.s
+
+# target to generate assembly for a file
+main.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nilm_posix.dir/build.make CMakeFiles/nilm_posix.dir/main.c.s
+.PHONY : main.c.s
 
 # Help Target
 help:

@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.4.2",
     "pandas",
     "protobuf>=7.34.0",
+    "pyqt6>=6.11.0",
     "scikit-learn>=1.8.0",
     "scipy>=1.17.1",
     "tqdm>=4.67.3",

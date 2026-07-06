@@ -4,9 +4,14 @@ from loguru import logger
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
+# import matplotlib
+# matplotlib.use( 'tkagg' )
 
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+
 
 building_list = [1, 2, 3, 4, 5, 6]
 
@@ -102,6 +107,7 @@ def plot_with_scrollbar(
     pruned_df: pd.DataFrame,
     column: str,
     window_size: int,
+    building_id: int,
 ) -> None:
     values = pd.to_numeric(pruned_df[column], errors="coerce").to_numpy(dtype=float)
     x = np.arange(len(values))
@@ -142,6 +148,18 @@ def plot_with_scrollbar(
         fig.canvas.draw_idle()
 
     slider.on_changed(update)
+
+    backend = plt.get_backend().lower()
+    if "agg" in backend:
+        output_path = f"tests/redd_building_{building_id}_pruned_plot.png"
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
+        logger.info(
+            f"Non-interactive matplotlib backend '{plt.get_backend()}' detected; "
+            f"saved plot to {output_path}"
+        )
+        plt.close(fig)
+        return
+
     plt.show()
 
 
@@ -225,9 +243,26 @@ if __name__ == "__main__":
             keep_last=not args.drop_last,
         )
 
+        pruned_main_data = pd.to_numeric(pruned_df["main"], errors="coerce").to_numpy(dtype=np.float64)
+        pruned_bin_path = f"tests/redd_building_{building_id}_pruned.bin"
+
+        pruned_main_data.tofile(pruned_bin_path)
+
+        logger.info(f"Verifying pruned binary data integrity for Building {building_id}...")
+        with open(pruned_bin_path, "rb") as input_file:
+            for i in tqdm(range(len(pruned_main_data)), desc=f"Building {building_id} verify"):
+                input_file.seek(i * pruned_main_data.itemsize)
+                sample = np.fromfile(input_file, dtype=pruned_main_data.dtype, count=1)[0]
+
+                assert np.isclose(sample, pruned_main_data[i]), (
+                    f"Data mismatch for Building {building_id} at index {i}, "
+                    f"{sample} != {pruned_main_data[i]}"
+                )
+
         if args.plot:
             plot_with_scrollbar(
                 pruned_df=pruned_df,
                 column="main",
                 window_size=args.window_size,
+                building_id=building_id,
             )
