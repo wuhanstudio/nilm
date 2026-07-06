@@ -489,14 +489,14 @@ void loop() {
         if (current_index == 0) {
           for (uint16_t i = 0; i < LV_CHART_POINT; i++) {
             // lv_chart_set_next_value(power_chart, power_series, (lv_coord_t)value);
-            lv_update_chart(value);
+            lv_update_chart(value, rising_count, falling_count);
           }
         }
 
-        lv_update_chart(value);
-        Serial.println(value);
-
         process_edge_event((double)value);
+
+        lv_update_chart(value, rising_count, falling_count);
+        Serial.println(value);
 
         current_index = current_index + 1;
       } else {

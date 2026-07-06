@@ -19,6 +19,6 @@
 
 void lv_chart_ui();
 void lv_ui_init();
-void lv_update_chart(float value);
+void lv_update_chart(float value, size_t rising_count, size_t falling_count);
 
 #endif __LV_CHART_H__
