@@ -1,3 +1,7 @@
+CMake_minimum_required(VERSION 3.10)
+
+project(nilm_posix C)
+
 add_executable(nilm_posix
     detector.c
     main.c

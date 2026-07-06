@@ -28,7 +28,7 @@ int main(void) {
                 (long long)output.transition_start_time,
                 (long long)output.transition_end_time,
                 output.transition_power_change,
-                output.transition_data_len
+                output.transition_end_time - output.transition_start_time + 1
             );
             printf("transition data: ");
             for (size_t i = 0; i < output.transition_data_len; i++) {
@@ -37,8 +37,7 @@ int main(void) {
             printf("\n");
         }
     }
-
-    printf("total transitions: %zu\n", edge_detector_num_transitions(&detector));
+    
     edge_detector_free(&detector);
     return 0;
 }
