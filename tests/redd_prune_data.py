@@ -243,10 +243,11 @@ if __name__ == "__main__":
             keep_last=not args.drop_last,
         )
 
-        pruned_main_data = pd.to_numeric(pruned_df["main"], errors="coerce").to_numpy(dtype=np.float64)
+        pruned_main_data = pd.to_numeric(pruned_df["main"], errors="coerce").to_numpy(dtype=np.float32)
         pruned_bin_path = f"tests/redd_building_{building_id}_pruned.bin"
 
-        pruned_main_data.tofile(pruned_bin_path)
+        with open(pruned_bin_path, "wb") as output_file:
+            pruned_main_data.tofile(output_file)
 
         logger.info(f"Verifying pruned binary data integrity for Building {building_id}...")
         with open(pruned_bin_path, "rb") as input_file:

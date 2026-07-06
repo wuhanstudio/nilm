@@ -71,6 +71,7 @@ int main(void) {
         "../tests/redd_building_1_pruned.bin",
         "redd_building_1_pruned.bin",
     };
+    float sample_f32;
     double sample;
     size_t i;
     size_t stable_samples = 0;
@@ -90,11 +91,13 @@ int main(void) {
         return 1;
     }
 
-    if (fread(&sample, sizeof(double), 1, input_file) != 1) {
+    if (fread(&sample_f32, sizeof(float), 1, input_file) != 1) {
         fprintf(stderr, "Input file has no readable samples\n");
         fclose(input_file);
         return 1;
     }
+
+    sample = (double)sample_f32;
 
     if (edge_detector_init(&detector, 0, sample, 15.0, 50.0, 2) != 0) {
         fprintf(stderr, "Failed to initialize edge detector\n");
@@ -103,7 +106,8 @@ int main(void) {
     }
 
     t = 1;
-    while (fread(&sample, sizeof(double), 1, input_file) == 1) {
+    while (fread(&sample_f32, sizeof(float), 1, input_file) == 1) {
+        sample = (double)sample_f32;
         output = edge_detector_update(&detector, t, sample);
         if (output.transition) {
             stable_samples = 0;
