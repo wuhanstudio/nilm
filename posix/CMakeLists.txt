@@ -4,6 +4,7 @@ project(nilm_posix C)
 
 add_executable(nilm_posix
     detector.c
+    features.c
     main.c
     lime-tm/clause.c
     lime-tm/tsetlin.c

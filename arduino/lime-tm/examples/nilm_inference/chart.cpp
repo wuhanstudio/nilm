@@ -36,7 +36,7 @@ void lv_chart_ui() {
   lv_obj_t* scr = lv_scr_act();
 
   value_label = lv_label_create(scr);
-  lv_label_set_text(value_label, "Value: -- | R: 0 F: 0");
+  lv_label_set_text(value_label, "Value: -- | R: 0 F: 0 M: 0");
   lv_obj_align(value_label, LV_ALIGN_TOP_MID, 0, 8);
 
   power_chart = lv_chart_create(scr);
@@ -51,7 +51,7 @@ void lv_chart_ui() {
   power_series = lv_chart_add_series(power_chart, lv_palette_main(LV_PALETTE_GREEN), LV_CHART_AXIS_PRIMARY_Y);
 }
 
-void lv_update_chart(float value, size_t rising_count, size_t falling_count) {
+void lv_update_chart(float value, size_t rising_count, size_t falling_count, size_t matched_count) {
   if (value < chart_min) {
     chart_min = value;
     lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
@@ -67,9 +67,10 @@ void lv_update_chart(float value, size_t rising_count, size_t falling_count) {
   snprintf(
       label_text,
       sizeof(label_text),
-      "Value: %.2f | R: %u F: %u",
+      "Value: %.2f | R: %u F: %u M: %u",
       value,
       (unsigned int)rising_count,
-      (unsigned int)falling_count);
+      (unsigned int)falling_count,
+      (unsigned int)matched_count);
   lv_label_set_text(value_label, label_text);
 }

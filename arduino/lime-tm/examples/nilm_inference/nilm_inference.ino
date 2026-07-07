@@ -29,52 +29,34 @@
 #include "redd.h"
 #include "redd_test.h"
 #include "redd_model.h"
+#include "detector.h"
+#include "features.h"
 
 #include "chart.h"
 
 #define Console Serial
 static const char* TAG = "main";
 
-#define EDGE_DETECTOR_MAX_SAMPLES 512
 #define MAX_STORED_EDGES 256
 #define STABLE_MATCH_WINDOW 20
+#define MATCH_BATCH_LIMIT 1
 
-typedef struct {
-  bool transition;
-  int64_t transition_start_time;
-  int64_t transition_end_time;
-  double transition_power_change;
-  const double* transition_data;
-  size_t transition_data_len;
-} EdgeDetectorOutput;
+static inline void cooperative_yield(void) {
+  yield();
+#if defined(ARDUINO_ARCH_ESP32)
+  delay(0);
+#endif
+}
 
-typedef struct {
-  double state_threshold;
-  double noise_level;
-  size_t min_n_samples;
-
-  size_t N;
-  double estimated_steady_power;
-
-  bool ongoing_change;
-  bool instantaneous_change_queue[EDGE_DETECTOR_MAX_SAMPLES];
-  size_t instantaneous_change_queue_len;
-
-  int64_t tran_start_time;
-  double tran_data[EDGE_DETECTOR_MAX_SAMPLES];
-  size_t tran_data_len;
-  int64_t tran_end_time;
-
-  int64_t previous_time;
-  double previous_measurement;
-  double last_steady_power;
-} EdgeDetector;
-
-typedef struct {
-  int64_t start_time;
-  int64_t end_time;
-  double delta;
-} StoredEdge;
+// Forward declarations to prevent Arduino auto-prototype ordering issues.
+static inline void cooperative_yield(void);
+static size_t read_float_range_from_sd(int64_t start, int64_t end, double* out, size_t out_cap);
+static size_t read_float_range_cb(int64_t start, int64_t end, double* out, size_t out_cap, void* user_ctx);
+static int restore_sd_position(int64_t stream_index, void* user_ctx);
+static void feature_yield(void* user_ctx);
+static void reset_event_pairing_state(void);
+static void match_edges_if_possible(size_t max_matches);
+static void process_edge_event(float value);
 
 static EdgeDetector detector;
 static bool detector_initialized = false;
@@ -86,141 +68,59 @@ static size_t rising_count = 0;
 
 static StoredEdge falling_edges[MAX_STORED_EDGES];
 static size_t falling_count = 0;
+static size_t matched_event_count = 0;
 
-static int push_to_transition_data(EdgeDetector* det, double value) {
-  if (det->tran_data_len >= EDGE_DETECTOR_MAX_SAMPLES) {
-    return -1;
+extern File fp;
+extern int current_index;
+
+static size_t read_float_range_from_sd(int64_t start, int64_t end, double* out, size_t out_cap) {
+  Serial.println("Reading data from SD card");
+  if (out == NULL || out_cap == 0 || end < start || start < 0 || fp == NULL) {
+    return 0;
   }
-  det->tran_data[det->tran_data_len++] = value;
-  return 0;
+
+  size_t requested = (size_t)(end - start + 1);
+  if (requested > out_cap) {
+    requested = out_cap;
+  }
+
+  uint32_t byte_pos = (uint32_t)start * sizeof(float);
+  if (!fp.seek(byte_pos)) {
+    return 0;
+  }
+
+  for (size_t i = 0; i < requested; i++) {
+    float v;
+    if (fp.read((uint8_t*)&v, sizeof(float)) != sizeof(float)) {
+      return i;
+    }
+    out[i] = (double)v;
+    if ((i & 0x3F) == 0) {
+      cooperative_yield();
+    }
+  }
+
+  return requested;
 }
 
-static bool all_queue_false(const EdgeDetector* det) {
-  for (size_t i = 0; i < det->instantaneous_change_queue_len; i++) {
-    if (det->instantaneous_change_queue[i]) {
-      return false;
-    }
-  }
-  return true;
+static size_t read_float_range_cb(int64_t start, int64_t end, double* out, size_t out_cap, void* user_ctx) {
+  (void)user_ctx;
+  return read_float_range_from_sd(start, end, out, out_cap);
 }
 
-static void queue_push(EdgeDetector* det, bool value) {
-  if (det->instantaneous_change_queue_len < det->min_n_samples) {
-    det->instantaneous_change_queue[det->instantaneous_change_queue_len++] = value;
-    return;
+static int restore_sd_position(int64_t stream_index, void* user_ctx) {
+  File* file = (File*)user_ctx;
+  if (file == NULL) {
+    return 0;
   }
 
-  if (det->min_n_samples == 0) {
-    return;
-  }
-
-  memmove(
-      det->instantaneous_change_queue,
-      det->instantaneous_change_queue + 1,
-      (det->min_n_samples - 1) * sizeof(bool));
-  det->instantaneous_change_queue[det->min_n_samples - 1] = value;
+  uint32_t restore_pos = (uint32_t)stream_index * sizeof(float);
+  return file->seek(restore_pos) ? 1 : 0;
 }
 
-static int edge_detector_init(
-    EdgeDetector* det,
-    int64_t current_time,
-    double current_measurement,
-    double state_threshold,
-    double noise_level,
-    size_t min_n_samples) {
-  if (!det || min_n_samples > EDGE_DETECTOR_MAX_SAMPLES) {
-    return -1;
-  }
-
-  memset(det, 0, sizeof(*det));
-
-  det->state_threshold = state_threshold;
-  det->noise_level = noise_level;
-  det->min_n_samples = min_n_samples;
-
-  det->N = 0;
-  det->estimated_steady_power = 0.0;
-  det->ongoing_change = false;
-  det->tran_end_time = current_time;
-
-  det->previous_time = current_time;
-  det->previous_measurement = current_measurement;
-  det->last_steady_power = current_measurement;
-
-  return 0;
-}
-
-static EdgeDetectorOutput edge_detector_update(
-    EdgeDetector* det,
-    int64_t current_time,
-    double current_measurement) {
-  EdgeDetectorOutput output;
-  double state_change;
-  bool instantaneous_change;
-
-  memset(&output, 0, sizeof(output));
-
-  if (!det) {
-    return output;
-  }
-
-  state_change = fabs(current_measurement - det->previous_measurement);
-  instantaneous_change = state_change > det->state_threshold;
-
-  if (!det->ongoing_change && instantaneous_change) {
-    if (det->tran_data_len == 0) {
-      det->tran_start_time = det->previous_time;
-    }
-    if (push_to_transition_data(det, det->previous_measurement) != 0) {
-      return output;
-    }
-  } else if (det->ongoing_change) {
-    if (push_to_transition_data(det, det->previous_measurement) != 0) {
-      return output;
-    }
-    if (!instantaneous_change) {
-      det->tran_end_time = det->previous_time;
-    }
-  }
-
-  queue_push(det, instantaneous_change);
-
-  if (det->instantaneous_change_queue_len == det->min_n_samples && all_queue_false(det)) {
-    double last_transition = det->estimated_steady_power - det->last_steady_power;
-
-    if (fabs(last_transition) > det->noise_level) {
-      int64_t transition_start_time = det->previous_time;
-      if (det->tran_data_len > 0) {
-        transition_start_time = det->tran_start_time;
-      }
-
-      output.transition = true;
-      output.transition_start_time = transition_start_time;
-      output.transition_end_time = det->tran_end_time;
-      output.transition_power_change = last_transition;
-      output.transition_data = det->tran_data;
-      output.transition_data_len = det->tran_data_len;
-
-      det->tran_data_len = 0;
-    }
-
-    det->last_steady_power = det->estimated_steady_power;
-  }
-
-  det->estimated_steady_power =
-      ((double)det->N * det->estimated_steady_power + current_measurement) / (double)(det->N + 1);
-
-  if (instantaneous_change) {
-    det->N = 0;
-  } else {
-    det->N += 1;
-  }
-
-  det->ongoing_change = instantaneous_change;
-  det->previous_measurement = current_measurement;
-  det->previous_time = current_time;
-
-  return output;
+static void feature_yield(void* user_ctx) {
+  (void)user_ctx;
+  cooperative_yield();
 }
 
 static void reset_event_pairing_state(void) {
@@ -229,17 +129,25 @@ static void reset_event_pairing_state(void) {
   stable_samples = 0;
   rising_count = 0;
   falling_count = 0;
+  matched_event_count = 0;
 }
 
-static void match_edges_if_possible(void) {
+static void match_edges_if_possible(size_t max_matches) {
+  if (max_matches == 0) {
+    return;
+  }
+
   size_t rise_idx = 0;
   size_t fall_search_idx = 0;
   size_t match_count = 0;
 
-  while (rise_idx < rising_count && fall_search_idx < falling_count) {
+  while (rise_idx < rising_count && fall_search_idx < falling_count && match_count < max_matches) {
     while (fall_search_idx < falling_count &&
            falling_edges[fall_search_idx].start_time <= rising_edges[rise_idx].start_time) {
       fall_search_idx++;
+      if ((fall_search_idx & 0x0F) == 0) {
+        cooperative_yield();
+      }
     }
 
     if (fall_search_idx >= falling_count) {
@@ -256,14 +164,29 @@ static void match_edges_if_possible(void) {
         (long long)falling_edges[fall_search_idx].end_time,
         falling_edges[fall_search_idx].delta);
 
+    LOGI(TAG, "MATCHING rising edge %zu with falling edge %zu", rise_idx, fall_search_idx);
+
+    features_extract_and_log_matched_episode_features(
+      &rising_edges[rise_idx],
+      &falling_edges[fall_search_idx],
+      read_float_range_cb,
+      restore_sd_position,
+      current_index,
+      feature_yield,
+      &fp,
+      TAG);
+
     match_count++;
     rise_idx++;
     fall_search_idx++;
+    cooperative_yield();
   }
 
   if (match_count == 0) {
     return;
   }
+
+  matched_event_count += match_count;
 
   for (size_t i = 0; i < rising_count - match_count; i++) {
     rising_edges[i] = rising_edges[i + match_count];
@@ -276,11 +199,11 @@ static void match_edges_if_possible(void) {
   falling_count -= match_count;
 }
 
-static void process_edge_event(double value) {
+static void process_edge_event(float value) {
   EdgeDetectorOutput output;
 
   if (!detector_initialized) {
-    if (edge_detector_init(&detector, 0, value, 15.0, 50.0, 2) != 0) {
+    if (edge_detector_init(&detector, 0, value, 15.0f, 50.0f, 2) != 0) {
       LOGE(TAG, "Failed to initialize edge detector");
       return;
     }
@@ -319,13 +242,14 @@ static void process_edge_event(double value) {
   } else {
     stable_samples++;
     if (stable_samples >= STABLE_MATCH_WINDOW) {
+      delay(5);
       LOGI(
           TAG,
           "Stable window reached (%u), matching edges rising=%u falling=%u",
           (unsigned int)stable_samples,
           (unsigned int)rising_count,
           (unsigned int)falling_count);
-      match_edges_if_possible();
+      match_edges_if_possible(MATCH_BATCH_LIMIT);
       stable_samples = 0;
     }
   }
@@ -450,10 +374,6 @@ void setup() {
 
   //Initialise LVGL
   lv_ui_init();
-
-  //Or try out the large standard widgets demo
-  // lv_demo_widgets();
-  // lv_demo_benchmark();
   lv_chart_ui();
 
   LOGI(TAG, "Initializing SD card...");
@@ -482,23 +402,24 @@ void loop() {
   // }
 
   float value;
-  if (millis() - lastNILMTick > 1000) {
+  if (millis() - lastNILMTick > 100) {
     if (fp != NULL) {
       if (fp.read((uint8_t*)&value, sizeof(float)) == sizeof(float)) {
         // Initialize the chart using the first value
         if (current_index == 0) {
           for (uint16_t i = 0; i < LV_CHART_POINT; i++) {
             // lv_chart_set_next_value(power_chart, power_series, (lv_coord_t)value);
-            lv_update_chart(value, rising_count, falling_count);
+            lv_update_chart(value, rising_count, falling_count, matched_event_count);
           }
         }
 
-        process_edge_event((double)value);
+        // Edge detection and event processing
+        process_edge_event(value);
 
-        lv_update_chart(value, rising_count, falling_count);
+        lv_update_chart(value, rising_count, falling_count, matched_event_count);
         Serial.println(value);
+        current_index++;
 
-        current_index = current_index + 1;
       } else {
         if (rising_count > 0 && falling_count > 0) {
           LOGI(
@@ -506,7 +427,10 @@ void loop() {
               "End of file, final matching rising=%u falling=%u",
               (unsigned int)rising_count,
               (unsigned int)falling_count);
-          match_edges_if_possible();
+          while (rising_count > 0 && falling_count > 0) {
+            match_edges_if_possible(MAX_STORED_EDGES);
+            cooperative_yield();
+          }
         }
         fp.seek(0);
         reset_event_pairing_state();
