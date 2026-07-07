@@ -13,6 +13,8 @@
 #define EPISODE_FEATURE_COUNT 23
 #define EPISODE_FEATURE_BITS 8
 
+static const char *TAG = "main";
+
 typedef struct {
     int64_t start_time;
     int64_t end_time;
@@ -107,6 +109,29 @@ static const char *REDD_CLASS_NAMES[] = {
     "dish washer",
     "electric furnace",
 };
+
+static void log_transition_data(const double *data, size_t len) {
+    char line[1024];
+    int offset = snprintf(line, sizeof(line), "transition data:");
+
+    if (offset < 0) {
+        return;
+    }
+
+    for (size_t i = 0; i < len && offset < (int)(sizeof(line) - 1); i++) {
+        int wrote = snprintf(line + offset, sizeof(line) - (size_t)offset, " %.2f", data[i]);
+        if (wrote < 0) {
+            break;
+        }
+        if (wrote >= (int)(sizeof(line) - (size_t)offset)) {
+            offset = (int)sizeof(line) - 1;
+            break;
+        }
+        offset += wrote;
+    }
+
+    LOGI(TAG, "%s", line);
+}
 
 static size_t clamp_episode_len(int64_t start, int64_t end) {
     if (end < start) {
@@ -516,22 +541,25 @@ static void extract_features_for_matched_edge(
             if (predicted_class < (sizeof(REDD_CLASS_NAMES) / sizeof(REDD_CLASS_NAMES[0]))) {
                 label = REDD_CLASS_NAMES[predicted_class];
             }
-            printf(
-                "episode inference class=%u label=%s vote=%d\n",
+            LOGI(
+                TAG,
+                "episode inference class=%u label=%s vote=%d",
                 (unsigned int)predicted_class,
                 label,
                 votes[predicted_class]
             );
         }
     } else {
-        printf(
+        LOGI(
+            TAG,
             "model feature mismatch model=%u expected=%u\n",
             (unsigned int)model->n_feature,
             (unsigned int)(EPISODE_FEATURE_COUNT * EPISODE_FEATURE_BITS)
         );
     }
 
-    printf(
+    LOGI(
+        TAG,
         "episode feature start=%lld end=%lld abs=%.3f duration=%.3f mean=%.3f std=%.3f\n",
         (long long)start,
         (long long)end,
@@ -540,7 +568,8 @@ static void extract_features_for_matched_edge(
         feat.episode_mean_main,
         feat.episode_std_main
     );
-    printf(
+    LOGI(
+        TAG,
         "episode norm first3=(%.4f, %.4f, %.4f) scaled_first3=(%.2f, %.2f, %.2f) bits_first8=%u%u%u%u%u%u%u%u\n",
         norm_vec23[0],
         norm_vec23[1],
@@ -574,7 +603,8 @@ static void match_edges_if_possible(FILE *input_file, int64_t current_index) {
             break;
         }
 
-        printf(
+        LOGI(
+            TAG,
             "matched transition rise=(%lld,%lld,%.2f) fall=(%lld,%lld,%.2f)\n",
             (long long)rising_edges[rise_idx].start_time,
             (long long)rising_edges[rise_idx].end_time,
@@ -631,18 +661,18 @@ int main(void) {
     for (i = 0; i < sizeof(input_paths) / sizeof(input_paths[0]); i++) {
         input_file = fopen(input_paths[i], "rb");
         if (input_file != NULL) {
-            printf("Loaded input from %s\n", input_paths[i]);
+            LOGI(TAG, "Loaded input from %s", input_paths[i]);
             break;
         }
     }
 
     if (input_file == NULL) {
-        fprintf(stderr, "Failed to open redd_building_1_pruned.bin\n");
+        LOGE(TAG, "Failed to open redd_building_1_pruned.bin");
         return 1;
     }
 
     if (fread(&sample_f32, sizeof(float), 1, input_file) != 1) {
-        fprintf(stderr, "Input file has no readable samples\n");
+        LOGE(TAG, "Input file has no readable samples");
         fclose(input_file);
         return 1;
     }
@@ -650,7 +680,7 @@ int main(void) {
     sample = (double)sample_f32;
 
     if (edge_detector_init(&detector, 0, sample, 15.0, 50.0, 2) != 0) {
-        fprintf(stderr, "Failed to initialize edge detector\n");
+        LOGE(TAG, "Failed to initialize edge detector");
         fclose(input_file);
         return 1;
     }
@@ -663,18 +693,15 @@ int main(void) {
         if (output.transition) {
             stable_samples = 0;
 
-            printf(
+            LOGI(
+                TAG,
                 "transition start=%lld end=%lld delta=%.2f samples=%zu\n",
                 (long long)output.transition_start_time,
                 (long long)output.transition_end_time,
                 output.transition_power_change,
                 output.transition_end_time - output.transition_start_time + 1
             );
-            printf("transition data: ");
-            for (size_t i = 0; i < output.transition_data_len; i++) {
-                printf("%.2f ", output.transition_data[i]);
-            }
-            printf("\n");
+            log_transition_data(output.transition_data, output.transition_data_len);
 
             if (output.transition_power_change > 0.0) {
                 if (rising_count < MAX_STORED_EDGES) {
@@ -694,7 +721,8 @@ int main(void) {
         } else {
             stable_samples++;
             if (stable_samples >= STABLE_MATCH_WINDOW) {
-                printf(
+                LOGI(
+                    TAG,
                     "stable window reached (%zu samples), matching stored edges (rising=%zu, falling=%zu)\n",
                     stable_samples,
                     rising_count,
@@ -710,7 +738,8 @@ int main(void) {
     }
 
     if (rising_count > 0 && falling_count > 0) {
-        printf(
+        LOGI(
+            TAG,
             "end of stream, final matching pass (rising=%zu, falling=%zu)\n",
             rising_count,
             falling_count
@@ -719,7 +748,7 @@ int main(void) {
     }
 
     if (ferror(input_file)) {
-        fprintf(stderr, "Error while reading sample data\n");
+        LOGE(TAG, "Error while reading sample data");
         fclose(input_file);
         edge_detector_free(&detector);
         return 1;
