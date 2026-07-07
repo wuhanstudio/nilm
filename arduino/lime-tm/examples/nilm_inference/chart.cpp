@@ -1,6 +1,9 @@
 #include "chart.h"
 
+#include "features.h"
+
 lv_obj_t* value_label = nullptr;
+lv_obj_t* class_count_label = nullptr;
 
 lv_obj_t* power_chart = nullptr;
 lv_chart_series_t* power_series = nullptr;
@@ -39,9 +42,15 @@ void lv_chart_ui() {
   lv_label_set_text(value_label, "Value: -- | R: 0 F: 0 M: 0");
   lv_obj_align(value_label, LV_ALIGN_TOP_MID, 0, 8);
 
+  class_count_label = lv_label_create(scr);
+  lv_label_set_text(class_count_label, "fridge: 0 | microwave: 0 | dish washer: 0 | electric furnace: 0");
+  lv_label_set_long_mode(class_count_label, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(class_count_label, TFT_VER_RES - 8);
+  lv_obj_align(class_count_label, LV_ALIGN_BOTTOM_MID, 0, -4);
+
   power_chart = lv_chart_create(scr);
-  lv_obj_set_size(power_chart, TFT_VER_RES, TFT_HOR_RES - 30);
-  lv_obj_align(power_chart, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_set_size(power_chart, TFT_VER_RES, TFT_HOR_RES - 80);
+  lv_obj_align(power_chart, LV_ALIGN_BOTTOM_MID, 0, -40);
   lv_chart_set_type(power_chart, LV_CHART_TYPE_LINE);
   lv_chart_set_point_count(power_chart, LV_CHART_POINT);
   lv_chart_set_range(power_chart, LV_CHART_AXIS_PRIMARY_Y, (int32_t)chart_min, (int32_t)chart_max);
@@ -73,4 +82,32 @@ void lv_update_chart(float value, size_t rising_count, size_t falling_count, siz
       (unsigned int)falling_count,
       (unsigned int)matched_count);
   lv_label_set_text(value_label, label_text);
+
+  char class_text[160];
+  size_t class_count = features_get_class_count();
+  size_t used = 0;
+  for (size_t i = 0; i < class_count; i++) {
+    const char* class_label = features_get_class_label(i);
+    size_t count = features_get_class_event_count(i);
+    int written = snprintf(
+        class_text + used,
+        sizeof(class_text) - used,
+        "%s%s: %u",
+        (i == 0) ? "" : " | ",
+        class_label != nullptr ? class_label : "unknown",
+        (unsigned int)count);
+    if (written <= 0) {
+      break;
+    }
+    size_t written_size = (size_t)written;
+    if (written_size >= (sizeof(class_text) - used)) {
+      used = sizeof(class_text) - 1;
+      break;
+    }
+    used += written_size;
+  }
+  if (used == 0) {
+    snprintf(class_text, sizeof(class_text), "--");
+  }
+  lv_label_set_text(class_count_label, class_text);
 }

@@ -69,6 +69,7 @@ static void reset_event_pairing_state(void)
   rising_count = 0;
   falling_count = 0;
   matched_event_count = 0;
+  features_reset_prediction_stats();
 }
 
 static void match_edges_if_possible(size_t max_matches)
