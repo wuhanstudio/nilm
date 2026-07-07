@@ -18,4 +18,10 @@ void features_extract_and_log_matched_episode_features(
     const StoredEdge* fall,
     File f_data);
 
+const char* features_get_latest_predicted_label(void);
+void features_reset_prediction_stats(void);
+size_t features_get_class_count(void);
+const char* features_get_class_label(size_t class_index);
+size_t features_get_class_event_count(size_t class_index);
+
 #endif // __NILM_FEATURES_H__

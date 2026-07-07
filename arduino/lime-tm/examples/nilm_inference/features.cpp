@@ -11,6 +11,22 @@
 #define CONTEXT_WINDOW 32
 #define EPISODE_FEATURE_COUNT 23
 #define EPISODE_FEATURE_BITS 8
+#define TM_MAX_CLASSES 16
+
+// Implemented in nilm_inference.ino to avoid duplicating model storage in this translation unit.
+extern Tsetlin *nilm_get_tm_model(void);
+
+static const char *REDD_CLASS_NAMES[] = {
+    "fridge",
+    "microwave",
+    "dish washer",
+    "electric furnace",
+};
+
+#define REDD_CLASS_COUNT (sizeof(REDD_CLASS_NAMES) / sizeof(REDD_CLASS_NAMES[0]))
+
+static const char *latest_predicted_label = "--";
+static size_t matched_event_class_counts[REDD_CLASS_COUNT] = {0};
 
 typedef struct
 {
@@ -566,43 +582,110 @@ void features_extract_and_log_matched_episode_features(
     episode_features_to_vector23(&feat, feature_vec23);
     normalize_scale_and_booleanize8(feature_vec23, norm_vec23, scaled_vec23, bool_vec184);
 
-    LOGI(
-        TAG,
-        "EP_FEATURE start=%lld end=%lld pos=%.3f neg=%.3f abs=%.3f dur=%.3f mean=%.3f std=%.3f min=%.3f max=%.3f range=%.3f diff_mean=%.3f diff_max=%.3f internal_edges=%.0f active=%.3f energy=%.3f post_pre=%.3f event_edges=%.0f",
-        (long long)episode_start,
-        (long long)episode_end,
-        feat.pos_transition_magnitude,
-        feat.neg_transition_magnitude,
-        feat.abs_transition,
-        feat.duration,
-        feat.episode_mean_main,
-        feat.episode_std_main,
-        feat.episode_min_main,
-        feat.episode_max_main,
-        feat.episode_range_main,
-        feat.internal_diff_mean_abs,
-        feat.internal_diff_max_abs,
-        feat.internal_edge_count,
-        feat.active_fraction_proxy,
-        feat.episode_energy_estimate,
-        feat.post_minus_pre_mean,
-        feat.event_internal_edge_count);
+    latest_predicted_label = "--";
 
     LOGI(
-        TAG,
-        "EP_NORM first3=(%.4f, %.4f, %.4f) scaled_first3=(%.2f, %.2f, %.2f) bool_first8=%u%u%u%u%u%u%u%u",
-        norm_vec23[0],
-        norm_vec23[1],
-        norm_vec23[2],
-        scaled_vec23[0],
-        scaled_vec23[1],
-        scaled_vec23[2],
-        (unsigned int)bool_vec184[0],
-        (unsigned int)bool_vec184[1],
-        (unsigned int)bool_vec184[2],
-        (unsigned int)bool_vec184[3],
-        (unsigned int)bool_vec184[4],
-        (unsigned int)bool_vec184[5],
-        (unsigned int)bool_vec184[6],
-        (unsigned int)bool_vec184[7]);
+    TAG,
+    "EP_FEATURE start=%lld end=%lld pos=%.3f neg=%.3f abs=%.3f dur=%.3f mean=%.3f std=%.3f min=%.3f max=%.3f range=%.3f diff_mean=%.3f diff_max=%.3f internal_edges=%.0f active=%.3f energy=%.3f post_pre=%.3f event_edges=%.0f",
+    (long long)episode_start,
+    (long long)episode_end,
+    feat.pos_transition_magnitude,
+    feat.neg_transition_magnitude,
+    feat.abs_transition,
+    feat.duration,
+    feat.episode_mean_main,
+    feat.episode_std_main,
+    feat.episode_min_main,
+    feat.episode_max_main,
+    feat.episode_range_main,
+    feat.internal_diff_mean_abs,
+    feat.internal_diff_max_abs,
+    feat.internal_edge_count,
+    feat.active_fraction_proxy,
+    feat.episode_energy_estimate,
+    feat.post_minus_pre_mean,
+    feat.event_internal_edge_count);
+
+    Tsetlin *model = nilm_get_tm_model();
+    if (model == NULL)
+    {
+        LOGW(TAG, "TM model is not available");
+    }
+    else if (model->n_feature != (EPISODE_FEATURE_COUNT * EPISODE_FEATURE_BITS))
+    {
+        LOGW(
+            TAG,
+            "TM feature mismatch model=%u expected=%u",
+            (unsigned int)model->n_feature,
+            (unsigned int)(EPISODE_FEATURE_COUNT * EPISODE_FEATURE_BITS));
+    }
+    else if (model->n_class > TM_MAX_CLASSES)
+    {
+        LOGW(
+            TAG,
+            "TM class count %u exceeds TM_MAX_CLASSES=%u",
+            (unsigned int)model->n_class,
+            (unsigned int)TM_MAX_CLASSES);
+    }
+    else
+    {
+        uint8_t predicted_class = 0;
+        int32_t votes[TM_MAX_CLASSES] = {0};
+        if (tsetlin_evaluate(model, bool_vec184, votes, &predicted_class) == 0)
+        {
+            if (predicted_class < REDD_CLASS_COUNT)
+            {
+                latest_predicted_label = REDD_CLASS_NAMES[predicted_class];
+                matched_event_class_counts[predicted_class]++;
+            }
+            else
+            {
+                latest_predicted_label = "unknown";
+            }
+            LOGI(
+                TAG,
+                "TM_INFER class=%u label=%s vote=%d",
+                (unsigned int)predicted_class,
+                latest_predicted_label,
+                votes[predicted_class]);
+        }
+        else
+        {
+            LOGW(TAG, "TM inference failed");
+        }
+    }
+}
+
+const char *features_get_latest_predicted_label(void)
+{
+    return latest_predicted_label;
+}
+
+void features_reset_prediction_stats(void)
+{
+    latest_predicted_label = "--";
+    memset(matched_event_class_counts, 0, sizeof(matched_event_class_counts));
+}
+
+size_t features_get_class_count(void)
+{
+    return REDD_CLASS_COUNT;
+}
+
+const char *features_get_class_label(size_t class_index)
+{
+    if (class_index >= REDD_CLASS_COUNT)
+    {
+        return "unknown";
+    }
+    return REDD_CLASS_NAMES[class_index];
+}
+
+size_t features_get_class_event_count(size_t class_index)
+{
+    if (class_index >= REDD_CLASS_COUNT)
+    {
+        return 0;
+    }
+    return matched_event_class_counts[class_index];
 }

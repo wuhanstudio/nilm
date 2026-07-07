@@ -326,6 +326,11 @@ uint32_t lastNILMTick = 0; // Used to track the tick timer
 uint32_t lastTick = 0;     // Used to track the tick timer
 int current_index = 0;
 
+Tsetlin *nilm_get_tm_model(void)
+{
+  return &tsetlin_model;
+}
+
 void setup()
 {
   // Initialize Console
