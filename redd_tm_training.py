@@ -1,9 +1,13 @@
+import random
+random.seed(0)
+
 import argparse
 from tqdm import tqdm
 from loguru import logger
 
 import numpy as np
 import pandas as pd
+from bitarray import bitarray
 from sklearn.metrics import classification_report, confusion_matrix
 
 from tsetlin import Tsetlin
@@ -41,8 +45,8 @@ features += [
 ]
 print(f"Features: {features}")
 
-# appliance_names = ["fridge", "microwave"]
-appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
+appliance_names = ["fridge", "microwave"]
+# appliance_names = ["fridge", "microwave", "dish washer", "electric furnace"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "unknown"]
 # appliance_names = ["fridge", "microwave", "dish washer", "electric furnace", "CE appliance"]
 
@@ -78,17 +82,37 @@ def read_redd_data(building_list, appliance_names, output_dir):
             except pd.errors.EmptyDataError:
                 logger.warning(f"File for building {i}, appliance unknown is empty. Skipping...")
 
-    # Draw a scatter plot of duration vs transition for each appliance
+    # Draw a scatter plot with publication-friendly typography.
     import matplotlib.pyplot as plt
-    plt.figure(figsize=(10, 6))
+    plt.rcParams.update({
+        'font.size': 20,
+        # 'font.weight': 'bold',
+        'axes.labelsize': 24,
+        # 'axes.labelweight': 'bold',
+        'axes.titlesize': 28,
+        # 'axes.titleweight': 'bold',
+        'xtick.labelsize': 20,
+        'ytick.labelsize': 20,
+        'legend.fontsize': 18,
+        'legend.title_fontsize': 18,
+    })
+    fig, ax = plt.subplots(figsize=(10, 6))
     for appliance in appliance_names:
         subset = redd_data[redd_data['appliance'] == appliance]
-        plt.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
+        ax.scatter(subset['transition'], subset['duration'], label=appliance, alpha=0.6)
 
-    plt.xlabel('Transition')
-    plt.ylabel('Duration')
-    plt.title('Transition vs Duration for Appliances')
-    plt.legend()
+    ax.set_xlabel('Transition', fontsize=24)
+    ax.set_ylabel('Duration', fontsize=24)
+    ax.set_title('Transition vs Duration for Appliances', fontsize=28, fontweight='bold')
+    ax.tick_params(axis='both', labelsize=20)
+    for tick in ax.get_xticklabels() + ax.get_yticklabels():
+        tick.set_fontweight('bold')
+    legend = ax.legend(fontsize=18)
+    legend.set_title('Appliance', prop={'size': 18, 'weight': 'bold'})
+    for text in legend.get_texts():
+        text.set_fontweight('bold')
+
+    plt.tight_layout()
     plt.show()
 
     redd_data['label'] = redd_data['appliance'].map(appliance_dict)
@@ -118,9 +142,49 @@ test_data_df = pd.DataFrame(X_test, columns=features)
 test_data_df['label'] = y_test
 test_data_df.to_csv('redd_data_test.csv', index=False)
 
+def objective(trial):
+    experiment_results = dict(
+        accuracy=[],
+        train_time=[],
+        test_time=[],
+    )
+
+    n_epochs = 10
+    n_state = trial.suggest_int("n_state", 2, 256, step=2)
+    n_clause = trial.suggest_int("n_clause", 2, 500, step=2)
+
+    T = trial.suggest_int("T", 1, n_state)
+    s = trial.suggest_float("s", 1.0, 10.0, step=0.1)
+
+    logger.info(f"Number of clauses: {n_clause}, Number of states: {n_state}")
+    logger.info(f"Threshold T: {T}, Specificity s: {s}")
+
+    m_tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y_train)), N_clause=n_clause, N_state=n_state)
+
+    logger.info(f"Running for {n_epochs} epochs")
+
+    y_pred = m_tsetlin.predict(X_test)
+    accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
+
+    for epoch in range(n_epochs):
+        logger.info(f"[Epoch {epoch+1}/{n_epochs}] Train Accuracy: {accuracy * 100:.2f}%")
+        for i in tqdm(range(len(X_train))):
+            m_tsetlin.step(X_train[i], y_train[i], T=T, s=s)
+
+        y_pred = m_tsetlin.predict(X_train)
+        accuracy = sum([ 1 if pred == train else 0 for pred, train in zip(y_pred, y_train)]) / len(y_train)
+
+    logger.info("")
+
+    # Final evaluation
+    y_pred = m_tsetlin.predict(X_test)
+    accuracy = sum([ 1 if pred == test else 0 for pred, test in zip(y_pred, y_test)]) / len(y_test)
+
+    return (1.0 - accuracy)  # Optuna minimizes the objective, so we return 1 - accuracy
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tsetlin Machine on Iris Dataset")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
 
     parser.add_argument("--n_clause", type=int, default=200, help="Number of clauses")
     parser.add_argument("--n_state", type=int, default=50, help="Number of states")
@@ -128,6 +192,8 @@ if __name__ == "__main__":
     
     parser.add_argument("--T", type=int, default=20, help="Threshold T")
     parser.add_argument("--s", type=float, default=6.0, help="Specificity s")
+
+    parser.add_argument("--optuna", action='store_true')
 
     args = parser.parse_args()
 
@@ -147,6 +213,10 @@ if __name__ == "__main__":
     X_train = booleanize_features(X_train, X_mean, X_std, num_bits=N_BIT)
     X_test = booleanize_features(X_test, X_mean, X_std, num_bits=N_BIT)
 
+    # Convert to bitarray
+    X_train = [bitarray(list(map(bool, x))) for x in X_train]
+    X_test = [bitarray(list(map(bool, x))) for x in X_test]
+
     # Train-test split
     # X_train, X_test, y_train, y_test = train_test_split(X_bool, y, test_size=0.2, random_state=0)
 
@@ -155,6 +225,23 @@ if __name__ == "__main__":
 
     logger.info(f"Number of clauses: {N_CLAUSE}, Number of states: {N_STATE}")
     logger.info(f"Threshold T: {args.T}, Specificity s: {args.s}")
+
+    if args.optuna:
+        import optuna
+            
+        # Create a new study.
+        # study = optuna.create_study()
+
+        study = optuna.create_study(
+            storage="sqlite:///db.sqlite3",  # Specify the storage URL here.
+            study_name=f"tsetlin-machine-redd",  # Name your study.}",
+            load_if_exists="True"
+        )
+        
+        # Invoke optimization of the objective function.
+        study.optimize(objective, n_trials=100)  
+
+        print(f"Best value: {study.best_value} (params: {study.best_params})")
 
     m_tsetlin = Tsetlin(N_feature=len(X_train[0]), N_class=len(np.unique(y_train)), N_clause=N_CLAUSE, N_state=N_STATE)
 

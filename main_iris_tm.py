@@ -1,6 +1,4 @@
 import random
-
-from tsetlin.compiler.clause_compressed import emit_clausec_arrays
 random.seed(0)
 
 import argparse
