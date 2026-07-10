@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #if defined(ARDUINO_ARCH_STM32)
 #include <malloc.h>
